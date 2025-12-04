@@ -101,6 +101,15 @@ const CreatorQueueChecklistModal = ({ checklist, open, onClose }) => {
     message.success("Checklist downloaded");
   };
 
+  // Calculate document status counts for progress bar
+  const total = docs.length;
+  const pending = docs.filter(d => d.status === "pendingChecker").length;
+  const approved = docs.filter(d => d.status === "approved").length;
+  const rejected = docs.filter(d => d.status === "rejected").length;
+  
+  // Progress percentage based on approved documents
+  const progressPercent = total === 0 ? 0 : Math.round((approved / total) * 100);
+
   const columns = [
     {
       title: "Document Name",
@@ -195,6 +204,56 @@ const CreatorQueueChecklistModal = ({ checklist, open, onClose }) => {
           </Descriptions>
         </Card>
 
+        {/* Progress Bar Section - Added Here */}
+        <div
+          style={{
+            padding: "16px",
+            background: "#f7f9fc",
+            borderRadius: 8,
+            border: "1px solid #e0e0e0",
+            margin: "16px 0",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+            <div style={{ fontWeight: "700", color: PRIMARY_BLUE }}>
+              Total Documents: {total}
+            </div>
+            <div style={{ fontWeight: "700", color: LIGHT_YELLOW }}>
+              Pending: {pending}
+            </div>
+            <div style={{ fontWeight: "700", color: ACCENT_LIME }}>
+              Approved: {approved}
+            </div>
+            <div style={{ fontWeight: "700", color: HIGHLIGHT_GOLD }}>
+              Rejected: {rejected}
+            </div>
+          </div>
+
+          {/* Progress Bar */}
+          <div style={{ width: "100%", height: 12, background: "#e0e0e0", borderRadius: 50 }}>
+            <div
+              style={{
+                height: "100%",
+                width: `${progressPercent}%`,
+                background: PRIMARY_BLUE,
+                borderRadius: 50,
+                transition: "width 0.4s ease",
+              }}
+            ></div>
+          </div>
+
+          <div
+            style={{
+              textAlign: "right",
+              marginTop: 4,
+              fontWeight: "700",
+              color: PRIMARY_BLUE,
+            }}
+          >
+            {progressPercent}% Approved
+          </div>
+        </div>
+
         <h3 style={{ marginTop: 16 }}>Documents</h3>
         <Table rowKey="docIdx" columns={columns} dataSource={docs} pagination={false} />
 
@@ -216,4 +275,3 @@ const CreatorQueueChecklistModal = ({ checklist, open, onClose }) => {
 };
 
 export default CreatorQueueChecklistModal;
-
