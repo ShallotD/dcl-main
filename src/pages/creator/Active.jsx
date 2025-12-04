@@ -1,253 +1,221 @@
-// src/pages/Active.jsx
 import React, { useState, useMemo } from "react";
-import {
-  Table,
-  Tag,
-  Input,
-  Select,
-  Space,
-  Progress,
-  Drawer,
-  Typography,
-} from "antd";
+import { Table, Button, Divider, Tag, Spin, Empty } from "antd";
+import ChecklistsPage from "./ChecklistsPage.jsx";
+import CreatorQueueChecklistModal from "../../components/modals/CreatorQueueChecklistModal.jsx";
+import { useGetChecklistsQuery } from "../../api/checklistApi.js";
 
-const { Search } = Input;
-const { Text, Title } = Typography;
+// Theme Colors
+const PRIMARY_BLUE = "#164679";
+const ACCENT_LIME = "#b5d334";
+const HIGHLIGHT_GOLD = "#fcb116";
+const LIGHT_YELLOW = "#fcd716";
+const SECONDARY_PURPLE = "#7e6496";
 
-// 🟦 MOCK DATA
-const MOCK_ACTIVE = [
-  {
-    _id: "A1",
-    customerNo: "458921",
-    dclNo: "DCL-10001",
-    customerName: "John Doe",
-    product: "Personal Loan",
-    progress: 70,
-    status: "Pending Checker",
-    rm: "Brian",
-    lastUpdated: "2025-11-20 10:24 AM",
-    checklist: [
-      { name: "Employment Letter", status: "Pending RM" },
-      { name: "Bank Statement", status: "Approved" },
-      { name: "ID Copy", status: "Pending RM" },
-    ],
-  },
-  {
-    _id: "A2",
-    customerNo: "772194",
-    dclNo: "DCL-10002",
-    customerName: "Mary Wanjiru",
-    product: "Home Loan",
-    progress: 45,
-    status: "Incomplete",
-    rm: "Sarah",
-    lastUpdated: "2025-11-21 03:40 PM",
-    checklist: [
-      { name: "CR12", status: "Pending RM" },
-      { name: "KRA Pin", status: "Incomplete" },
-    ],
-  },
-  {
-    _id: "A3",
-    customerNo: "993015",
-    dclNo: "DCL-10003",
-    customerName: "David Kimani",
-    product: "Credit Card",
-    progress: 90,
-    status: "Returned by Checker",
-    rm: "Brian",
-    lastUpdated: "2025-11-22 11:15 AM",
-    checklist: [
-      { name: "Credit Application", status: "Returned by Checker" },
-      { name: "ID Copy", status: "Approved" },
-    ],
-  },
-  {
-    _id: "A4",
-    customerNo: "551002",
-    dclNo: "DCL-10004",
-    customerName: "Linet Kariuki",
-    product: "Car Loan",
-    progress: 60,
-    status: "Pending RM",
-    rm: "Tom",
-    lastUpdated: "2025-11-23 08:00 AM",
-    checklist: [
-      { name: "Driver's License", status: "Pending RM" },
-      { name: "Insurance Certificate", status: "Pending RM" },
-      { name: "Loan Agreement", status: "Approved" },
-    ],
-  },
-];
-
-// 🟩 COLOR MAP
-const STATUS_COLORS = {
-  "Pending Checker": "blue",
-  Incomplete: "orange",
-  "Returned by Checker": "red",
-  "Pending RM": "purple",
-  Approved: "green",
-};
-
-export default function Active() {
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [searchText, setSearchText] = useState("");
-  const [openDrawer, setOpenDrawer] = useState(false);
+const Active = ({ userId }) => {
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedChecklist, setSelectedChecklist] = useState(null);
 
-  const filteredData = useMemo(() => {
-    return MOCK_ACTIVE.filter((row) => {
-      const matchesSearch =
-        row.customerName.toLowerCase().includes(searchText.toLowerCase()) ||
-        row.customerNo.includes(searchText) ||
-        row.dclNo.toLowerCase().includes(searchText.toLowerCase());
+  const { data: rawData, isLoading, isFetching, error, refetch } = useGetChecklistsQuery();
 
-      const matchesStatus =
-        statusFilter === "All" || row.status === statusFilter;
+  // Normalize API response
+  const checklists = useMemo(() => {
+    if (!rawData) return [];
+    if (Array.isArray(rawData)) return rawData;
+    if (Array.isArray(rawData.checklists)) return rawData.checklists;
+    if (Array.isArray(rawData.data)) return rawData.data;
+    if (Array.isArray(rawData.items)) return rawData.items;
+    return [];
+  }, [rawData]);
 
-      return matchesSearch && matchesStatus;
+  // Filter to show checklists assigned to this user
+  const myChecklists = useMemo(() => {
+    return checklists.filter((c) => {
+      const isAssigned =
+        c.assignedToCoChecker?._id === userId ||
+        c.assignedToCoChecker === userId ||
+        c.createdBy?._id === userId ||
+        c.createdBy === userId ||
+        c.assignedToChecker?._id === userId ||
+        c.assignedToChecker === userId;
+
+      return isAssigned && c.status !== "approved"; // exclude approved
     });
-  }, [searchText, statusFilter]);
+  }, [checklists, userId]);
+
+  // Custom table styles
+  const customTableStyles = `
+    .ant-table-wrapper { border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(22, 70, 121, 0.08); border: 1px solid #e0e0e0; }
+    .ant-table-thead > tr > th { background-color: #f7f7f7 !important; color: ${PRIMARY_BLUE} !important; font-weight: 700; font-size: 15px; padding: 16px 16px !important; border-bottom: 3px solid ${ACCENT_LIME} !important; border-right: none !important; }
+    .ant-table-tbody > tr > td { border-bottom: 1px solid #f0f0f0 !important; border-right: none !important; padding: 14px 16px !important; font-size: 14px; color: #333; }
+    .ant-table-tbody > tr.ant-table-row:hover > td { background-color: rgba(181, 211, 52, 0.1) !important; cursor: pointer; }
+    .ant-table-bordered .ant-table-container, .ant-table-bordered .ant-table-tbody > tr > td, .ant-table-bordered .ant-table-thead > tr > th { border: none !important; }
+    .ant-pagination .ant-pagination-item-active { background-color: ${ACCENT_LIME} !important; border-color: ${ACCENT_LIME} !important; }
+    .ant-pagination .ant-pagination-item-active a { color: ${PRIMARY_BLUE} !important; font-weight: 600; }
+    .ant-pagination .ant-pagination-item:hover { border-color: ${ACCENT_LIME} !important; }
+    .ant-pagination .ant-pagination-prev:hover .ant-pagination-item-link, .ant-pagination .ant-pagination-next:hover .ant-pagination-item-link { color: ${ACCENT_LIME} !important; }
+    .ant-pagination .ant-pagination-options .ant-select-selector { border-radius: 8px !important; }
+  `;
 
   const columns = [
-    {
-      title: "Customer No",
-      dataIndex: "customerNo",
-      key: "customerNo",
+    { 
+      title: "DCL No", 
+      dataIndex: "dclNo", 
+      width: 200, 
+      render: (text) => <span style={{ fontWeight: "bold", color: PRIMARY_BLUE }}>{text}</span> 
     },
-    {
-      title: "DCL No",
-      dataIndex: "dclNo",
-      key: "dclNo",
+    { 
+      title: "Customer Number", 
+      dataIndex: "customerNumber", 
+      width: 180, 
+      render: (text) => <span style={{ color: SECONDARY_PURPLE }}>{text}</span> 
     },
-    {
-      title: "Customer Name",
-      dataIndex: "customerName",
-      key: "customerName",
+    { 
+      title: "Loan Type", 
+      dataIndex: "loanType", 
+      width: 140 
     },
-    {
-      title: "Product",
-      dataIndex: "product",
-      key: "product",
+    { 
+      title: "Assigned RM", 
+      dataIndex: "assignedToRM", 
+      width: 120, 
+      render: (rm) => <span style={{ color: PRIMARY_BLUE, fontWeight: 500 }}>{rm?.name || "Not Assigned"}</span> 
     },
-    {
-      title: "Progress",
-      dataIndex: "progress",
-      key: "progress",
-      render: (value) => (
-        <Progress percent={value} size="small" status="active" />
-      ),
+    { 
+      title: "# Docs", 
+      dataIndex: "documents", 
+      width: 80, 
+      align: "center", 
+      render: (docs) => (
+        <Tag 
+          color={LIGHT_YELLOW} 
+          style={{ 
+            fontSize: 12, 
+            borderRadius: 999, 
+            fontWeight: "bold", 
+            color: PRIMARY_BLUE, 
+            border: `1px solid ${HIGHLIGHT_GOLD}` 
+          }}
+        >
+          {Array.isArray(docs) ? docs.length : 0}
+        </Tag>
+      ) 
     },
-    {
-      title: "Status",
-      dataIndex: "status",
-      key: "status",
-      render: (value) => (
-        <Tag color={STATUS_COLORS[value] || "default"}>{value}</Tag>
-      ),
+    { 
+      title: "Status", 
+      dataIndex: "status", 
+      width: 120, 
+      render: (status) => {
+        let tagColor, tagText, bgColor;
+        if (status === "approved") { 
+          tagText = "Approved"; 
+          tagColor = ACCENT_LIME; 
+          bgColor = ACCENT_LIME; 
+        }
+        else if (status === "rejected") { 
+          tagText = "Rejected"; 
+          tagColor = HIGHLIGHT_GOLD; 
+          bgColor = HIGHLIGHT_GOLD; 
+        }
+        else { 
+          tagText = "In Progress"; 
+          tagColor = SECONDARY_PURPLE; 
+          bgColor = LIGHT_YELLOW; 
+        }
+        return (
+          <Tag 
+            color={tagColor} 
+            style={{ 
+              fontSize: 12, 
+              borderRadius: 999, 
+              fontWeight: "bold", 
+              padding: "4px 8px", 
+              color: PRIMARY_BLUE, 
+              backgroundColor: bgColor + "40", 
+              borderColor: bgColor 
+            }}
+          >
+            {tagText}
+          </Tag>
+        );
+      }
     },
-    {
-      title: "RM",
-      dataIndex: "rm",
-      key: "rm",
-    },
-    {
-      title: "Last Updated",
-      dataIndex: "lastUpdated",
-      key: "lastUpdated",
-    },
+    { 
+      title: "Actions", 
+      width: 100, 
+      render: (_, record) => (
+        <Button 
+          size="small" 
+          type="link" 
+          onClick={() => setSelectedChecklist(record)} 
+          style={{ 
+            color: SECONDARY_PURPLE, 
+            fontWeight: "bold", 
+            fontSize: 13, 
+            borderRadius: 6, 
+            "--antd-wave-shadow-color": ACCENT_LIME 
+          }}
+        >
+          View
+        </Button>
+      ) 
+    }
   ];
 
+  const dataSource = Array.isArray(myChecklists) ? myChecklists : [];
+
   return (
-    <div style={{ padding: "24px" }}>
-      <h2 style={{ marginBottom: "16px" }}>Active Checklists</h2>
+    <div style={{ padding: 16 }}>
+      <style>{customTableStyles}</style>
 
-      {/* Filters */}
-      <Space style={{ marginBottom: 16 }}>
-        <Search
-          placeholder="Search by Customer, DCL No..."
-          onChange={(e) => setSearchText(e.target.value)}
-          style={{ width: 260 }}
-          allowClear
+      {drawerOpen && (
+        <ChecklistsPage 
+          open={drawerOpen} 
+          onClose={() => { 
+            setDrawerOpen(false); 
+            refetch && refetch(); 
+          }} 
+          coCreatorId={userId} 
         />
+      )}
 
-        <Select
-          value={statusFilter}
-          style={{ width: 200 }}
-          onChange={(value) => setStatusFilter(value)}
-        >
-          <Select.Option value="All">All Statuses</Select.Option>
-          <Select.Option value="Pending Checker">Pending Checker</Select.Option>
-          <Select.Option value="Incomplete">Incomplete</Select.Option>
-          <Select.Option value="Returned by Checker">
-            Returned by Checker
-          </Select.Option>
-          <Select.Option value="Pending RM">Pending RM</Select.Option>
-        </Select>
-      </Space>
+      <Divider style={{ margin: "12px 0" }}>Active Checklists</Divider>
 
-      {/* Table */}
-      <Table
-        columns={columns}
-        dataSource={filteredData}
-        rowKey="_id"
-        pagination={{ pageSize: 5 }}
-        onRow={(record) => ({
-          onClick: () => {
-            setSelectedChecklist(record);
-            setOpenDrawer(true);
-          },
-          style: { cursor: "pointer" },
-        })}
-      />
+      {isLoading || isFetching ? (
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: 24 }}>
+          <Spin tip="Loading checklists..."><div style={{ height: 40 }} /></Spin>
+        </div>
+      ) : error ? (
+        <Empty description="Failed to load checklists. Check console for details." style={{ padding: 24 }} />
+      ) : dataSource.length === 0 ? (
+        <Empty description="No active checklists assigned." style={{ padding: 24 }} />
+      ) : (
+        <Table 
+          columns={columns} 
+          dataSource={dataSource} 
+          rowKey={(record) => record._id || record.id} 
+          size="large" 
+          pagination={{ 
+            pageSize: 5, 
+            showSizeChanger: true, 
+            pageSizeOptions: ["5", "10", "20", "50"], 
+            position: ["bottomCenter"] 
+          }} 
+          rowClassName={(record, index) => (index % 2 === 0 ? "bg-white" : "bg-gray-50")} 
+        />
+      )}
 
-      {/* Details Drawer */}
-      <Drawer
-        open={openDrawer}
-        width={420}
-        onClose={() => setOpenDrawer(false)}
-        title={`Checklist – ${selectedChecklist?.customerName || ""}`}
-      >
-        {selectedChecklist && (
-          <>
-            <Text strong>Customer No:</Text> {selectedChecklist.customerNo}
-            <br />
-            <Text strong>DCL No:</Text> {selectedChecklist.dclNo}
-            <br />
-            <Text strong>Customer Name:</Text> {selectedChecklist.customerName}
-            <br />
-            <Text strong>Product:</Text> {selectedChecklist.product}
-            <br />
-            <Text strong>RM:</Text> {selectedChecklist.rm}
-            <br />
-            <Text strong>Last Updated:</Text> {selectedChecklist.lastUpdated}
-
-            <Title level={5} style={{ marginTop: 15 }}>
-              Documents Pending RM Action
-            </Title>
-
-            {selectedChecklist.checklist.map((doc) => (
-              <div
-                key={doc.name}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  padding: "6px 0",
-                  borderBottom: "1px solid #f0f0f0",
-                  fontSize: "0.9rem",
-                }}
-              >
-                <span>{doc.name}</span>
-                <Tag
-                  color={doc.status === "Pending RM" ? "orange" : "gray"}
-                >
-                  {doc.status}
-                </Tag>
-              </div>
-            ))}
-          </>
-        )}
-      </Drawer>
+      {selectedChecklist && (
+        <CreatorQueueChecklistModal
+          checklist={selectedChecklist}
+          open={!!selectedChecklist}
+          onClose={() => { 
+            setSelectedChecklist(null); 
+            refetch && refetch(); 
+          }}
+        />
+      )}
     </div>
   );
-}
+};
+
+export default Active;
