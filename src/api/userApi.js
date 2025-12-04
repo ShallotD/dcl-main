@@ -1,0 +1,56 @@
+import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+
+const baseQuery = fetchBaseQuery({
+  baseUrl: import.meta.env.VITE_API_URL + "/api/users",
+  prepareHeaders: (headers, { getState }) => {
+    const token = getState().auth.token;
+    if (token) headers.set("authorization", `Bearer ${token}`);
+    return headers;
+  },
+});
+
+export const userApi = createApi({
+  reducerPath: "userApi",
+  baseQuery,
+  tagTypes: ["User"],
+  endpoints: (builder) => ({
+    
+    getUsers: builder.query({
+      query: () => "/",
+      providesTags: ["User"],
+    }),
+
+    createUser: builder.mutation({
+      query: (data) => ({
+        url: "/",
+        method: "POST",
+        body: data,
+      }),
+      invalidatesTags: ["User"],
+    }),
+
+    toggleActive: builder.mutation({
+      query: (id) => ({
+        url: `/${id}/active`,
+        method: "PUT",
+      }),
+      invalidatesTags: ["User"],
+    }),
+
+    changeRole: builder.mutation({
+      query: ({ id, role }) => ({
+        url: `/${id}/role`,
+        method: "PUT",
+        body: { role },
+      }),
+      invalidatesTags: ["User"],
+    }),
+  }),
+});
+
+export const {
+  useGetUsersQuery,
+  useCreateUserMutation,
+  useToggleActiveMutation,
+  useChangeRoleMutation,
+} = userApi;
