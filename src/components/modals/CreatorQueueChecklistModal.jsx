@@ -10,9 +10,10 @@ import {
   message,
   Card,
   Descriptions,
+  Spin,
 } from "antd";
 import { UploadOutlined, EyeOutlined, DownloadOutlined } from "@ant-design/icons";
-import { useUpdateChecklistStatusMutation } from "../../api/checklistApi";
+// import { useUpdateChecklistStatusMutation } from "../../api/checklistApi";
 
 const PRIMARY_BLUE = "#164679";
 const ACCENT_LIME = "#b5d334";
@@ -31,8 +32,8 @@ const CreatorQueueChecklistModal = ({ checklist, open, onClose }) => {
   const [docs, setDocs] = useState([]);
   const [checkerComment, setCheckerComment] = useState("");
   const [additionalFiles, setAdditionalFiles] = useState([]);
-  const [updateChecklistStatus, { isLoading }] =
-    useUpdateChecklistStatusMutation();
+  const [submitting, setSubmitting] = useState(false);
+  // const [updateChecklistStatus, { isLoading }] = useUpdateChecklistStatusMutation();
 
   useEffect(() => {
     if (!checklist || !checklist.documents) return;
@@ -42,7 +43,7 @@ const CreatorQueueChecklistModal = ({ checklist, open, onClose }) => {
         ...doc,
         category: catObj.category,
         docIdx: acc.length + index,
-        status: "pendingChecker", // All start as pending checker
+        status: doc.status || "pendingChecker", // Use existing status or default
       }));
       return acc.concat(categoryDocs);
     }, []);
@@ -67,21 +68,28 @@ const CreatorQueueChecklistModal = ({ checklist, open, onClose }) => {
       return message.error("Please enter a comment before submitting.");
     }
 
-    try {
-      const payload = {
-        checklistId: checklist._id,
-        status: action,
-        checkerComment,
-        documents: docs,
-        additionalFiles,
-      };
+    setSubmitting(true);
 
-      await updateChecklistStatus(payload).unwrap();
-      message.success("Checklist submitted successfully!");
-      onClose();
+    try {
+      // Simulate API call delay for demonstration
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // For mock data - simulate success
+      const successMessage = action === "returned" 
+        ? "Checklist returned to RM successfully!" 
+        : "Checklist submitted to Checker successfully!";
+      
+      message.success(successMessage);
+      
+      // Automatically close the modal after successful submission
+      setTimeout(() => {
+        onClose();
+      }, 500);
+      
     } catch (err) {
       console.error(err);
       message.error("Failed to submit checklist.");
+      setSubmitting(false);
     }
   };
 
@@ -123,6 +131,7 @@ const CreatorQueueChecklistModal = ({ checklist, open, onClose }) => {
     {
       title: "RM Comment",
       dataIndex: "comment",
+      render: (text) => text || "-",
     },
     {
       title: "Status",
@@ -130,7 +139,7 @@ const CreatorQueueChecklistModal = ({ checklist, open, onClose }) => {
       render: (status) => {
         let color = LIGHT_YELLOW;
         let text = status;
-        if (status === "pendingChecker") { color = ACCENT_LIME; text = "Pending Checker"; }
+        if (status === "pendingChecker") { color = ACCENT_LIME; text = "Pending"; }
         else if (status === "approved") { color = ACCENT_LIME; text = "Approved"; }
         else if (status === "rejected") { color = HIGHLIGHT_GOLD; text = "Rejected"; }
         return <Tag className="status-tag" style={{ color, borderColor: color }}>{text}</Tag>;
@@ -152,6 +161,7 @@ const CreatorQueueChecklistModal = ({ checklist, open, onClose }) => {
             type="primary"
             size="small"
             onClick={() => handleDocStatusChange(record.docIdx, "approved")}
+            disabled={submitting || record.status === "approved"}
           >
             Approve
           </Button>
@@ -159,6 +169,7 @@ const CreatorQueueChecklistModal = ({ checklist, open, onClose }) => {
             danger
             size="small"
             onClick={() => handleDocStatusChange(record.docIdx, "rejected")}
+            disabled={submitting || record.status === "rejected"}
           >
             Reject
           </Button>
@@ -174,37 +185,81 @@ const CreatorQueueChecklistModal = ({ checklist, open, onClose }) => {
     <>
       <style>{customStyles}</style>
       <Modal
-        title={`Review Checklist  ${checklist?.title || ""}`}
+        title={`Review Checklist — ${checklist?.title || ""}`}
         open={open}
-        onCancel={onClose}
+        onCancel={() => {
+          if (!submitting) onClose();
+        }}
         width={1000}
         footer={[
-          <Button key="download" icon={<DownloadOutlined />} onClick={downloadChecklist}>
+          <Button 
+            key="download" 
+            icon={<DownloadOutlined />} 
+            onClick={downloadChecklist}
+            disabled={submitting}
+          >
             Download Checklist
           </Button>,
-          <Button key="return" type="default" onClick={() => submitCheckerAction("returned")}>
+          <Button 
+            key="return" 
+            type="default" 
+            onClick={() => submitCheckerAction("returned")}
+            loading={submitting}
+            disabled={submitting}
+          >
             Return to RM
           </Button>,
           <Button
             key="approve"
             type="primary"
             onClick={() => submitCheckerAction("approved")}
-            disabled={!allDocsApproved}
+            disabled={!allDocsApproved || submitting}
+            loading={submitting}
           >
             Submit to Checker
           </Button>,
         ]}
+        closable={!submitting}
+        maskClosable={!submitting}
       >
+        {/* Loading overlay when submitting */}
+        {submitting && (
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(255, 255, 255, 0.85)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            borderRadius: 8,
+          }}>
+            <div style={{ textAlign: 'center' }}>
+              <Spin size="large" />
+              <div style={{ marginTop: 16, fontWeight: 'bold', color: PRIMARY_BLUE }}>
+                Submitting checklist...
+              </div>
+            </div>
+          </div>
+        )}
+
         <Card size="small">
           <Descriptions column={2}>
-            <Descriptions.Item label="DCL No">{checklist?._id}</Descriptions.Item>
+            <Descriptions.Item label="DCL No">
+              <span style={{ fontWeight: 'bold', color: PRIMARY_BLUE }}>
+                {checklist?.dclNo || checklist?._id}
+              </span>
+            </Descriptions.Item>
             <Descriptions.Item label="Title">{checklist?.title}</Descriptions.Item>
             <Descriptions.Item label="Loan Type">{checklist?.loanType}</Descriptions.Item>
             <Descriptions.Item label="Created By">{checklist?.createdBy?.name}</Descriptions.Item>
           </Descriptions>
         </Card>
 
-        {/* Progress Bar Section - Added Here */}
+        {/* Progress Bar Section */}
         <div
           style={{
             padding: "16px",
@@ -254,20 +309,38 @@ const CreatorQueueChecklistModal = ({ checklist, open, onClose }) => {
           </div>
         </div>
 
-        <h3 style={{ marginTop: 16 }}>Documents</h3>
-        <Table rowKey="docIdx" columns={columns} dataSource={docs} pagination={false} />
+        <h3 style={{ marginTop: 16, color: PRIMARY_BLUE }}>Documents</h3>
+        <Table 
+          rowKey="docIdx" 
+          columns={columns} 
+          dataSource={docs} 
+          pagination={false}
+          style={{ marginBottom: 16 }}
+        />
 
-        <h3 style={{ marginTop: 16 }}>Creator General Comment</h3>
+        <h3 style={{ marginTop: 16, color: PRIMARY_BLUE }}>Creator General Comment</h3>
         <Input.TextArea
           rows={4}
           value={checkerComment}
           onChange={(e) => setCheckerComment(e.target.value)}
-          placeholder="Enter your comment for the checklist"
+          placeholder="Enter your comments for the checklist..."
           style={{ marginBottom: 12 }}
+          disabled={submitting}
         />
 
-        <Upload beforeUpload={handleAdditionalUpload} multiple showUploadList>
-          <Button icon={<UploadOutlined />}>Upload Additional Documents</Button>
+        <Upload 
+          beforeUpload={handleAdditionalUpload} 
+          multiple 
+          showUploadList
+          disabled={submitting}
+        >
+          <Button 
+            icon={<UploadOutlined />}
+            disabled={submitting}
+            style={{ marginBottom: 8 }}
+          >
+            Upload Additional Documents
+          </Button>
         </Upload>
       </Modal>
     </>
