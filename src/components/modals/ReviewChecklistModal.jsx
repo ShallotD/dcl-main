@@ -351,7 +351,7 @@ const ReviewChecklistModal = ({ checklist, open, onClose }) => {
     <>
       <style>{customStyles}</style>
       <Modal
-        title={`Review Checklist — ${checklist?.title || ""}`}
+        title={`Review Checklist  ${checklist?.title || ""}`}
         open={open}
         onCancel={onClose}
         width={1150}
