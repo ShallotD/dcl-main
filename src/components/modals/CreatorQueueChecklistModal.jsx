@@ -12,7 +12,14 @@ import {
   Descriptions,
   Spin,
 } from "antd";
-import { UploadOutlined, EyeOutlined, DownloadOutlined } from "@ant-design/icons";
+import { 
+  UploadOutlined, 
+  EyeOutlined, 
+  DownloadOutlined, 
+  PaperClipOutlined,
+  FileOutlined,
+  DeleteOutlined 
+} from "@ant-design/icons";
 // import { useUpdateChecklistStatusMutation } from "../../api/checklistApi";
 
 const PRIMARY_BLUE = "#164679";
@@ -26,6 +33,10 @@ const customStyles = `
   .status-tag { font-weight: 700; border-radius: 999px; padding: 3px 8px; text-transform: capitalize; display: inline-flex; align-items: center; gap: 4px; }
   .ant-input, .ant-input-textarea { border-radius: 6px !important; }
   .doc-table .ant-table-tbody > tr > td { border-bottom: 1px dashed #f0f0f0 !important; }
+  .ant-upload-list-item {
+    border-radius: 6px !important;
+    margin-top: 8px !important;
+  }
 `;
 
 const CreatorQueueChecklistModal = ({ checklist, open, onClose }) => {
@@ -58,9 +69,23 @@ const CreatorQueueChecklistModal = ({ checklist, open, onClose }) => {
   };
 
   const handleAdditionalUpload = (file) => {
-    setAdditionalFiles((prev) => [...prev, file]);
-    message.success(`${file.name} added`);
-    return false;
+    // Create a preview URL for the file
+    const fileWithPreview = {
+      ...file,
+      url: URL.createObjectURL(file),
+      status: 'done',
+      uid: file.uid || `additional-${Date.now()}-${Math.random()}`,
+      uploadedAt: new Date().toISOString()
+    };
+    
+    setAdditionalFiles((prev) => [...prev, fileWithPreview]);
+    message.success(`File uploaded: ${file.name}`);
+    return false; // Prevent default upload behavior
+  };
+
+  const removeFile = (file) => {
+    setAdditionalFiles((prev) => prev.filter(f => f.uid !== file.uid));
+    message.success(`File removed: ${file.name}`);
   };
 
   const submitCheckerAction = async (action) => {
@@ -98,9 +123,14 @@ const CreatorQueueChecklistModal = ({ checklist, open, onClose }) => {
     docs.forEach((doc) => {
       content += `- ${doc.name} (${doc.category}) - ${doc.status}\n`;
     });
-    additionalFiles.forEach((file) => {
-      content += `- Additional: ${file.name}\n`;
-    });
+    
+    if (additionalFiles.length > 0) {
+      content += `\nAdditional Files:\n`;
+      additionalFiles.forEach((file) => {
+        content += `- ${file.name} (${file.size ? Math.round(file.size / 1024) : '?'} KB)\n`;
+      });
+    }
+    
     const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
@@ -180,6 +210,28 @@ const CreatorQueueChecklistModal = ({ checklist, open, onClose }) => {
 
   // Check if all docs are approved for overall checklist approval
   const allDocsApproved = docs.length > 0 && docs.every(doc => doc.status === "approved");
+
+  // Upload props configuration - REMOVED FILE TYPE RESTRICTIONS AND LIMIT
+  const uploadProps = {
+    beforeUpload: handleAdditionalUpload,
+    multiple: true,
+    showUploadList: false, // Hide default upload list since we show our own
+    fileList: additionalFiles,
+    onRemove: removeFile,
+    // Removed accept attribute to allow all file types
+    // Removed maxCount attribute to allow unlimited files
+    disabled: submitting,
+  };
+
+  // Function to format file size
+  const formatFileSize = (bytes) => {
+    if (!bytes) return "Unknown size";
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  };
 
   return (
     <>
@@ -328,20 +380,188 @@ const CreatorQueueChecklistModal = ({ checklist, open, onClose }) => {
           disabled={submitting}
         />
 
-        <Upload 
-          beforeUpload={handleAdditionalUpload} 
-          multiple 
-          showUploadList
-          disabled={submitting}
-        >
+        <div style={{ marginTop: 16, marginBottom: 8 }}>
+          <h4 style={{ color: PRIMARY_BLUE, marginBottom: 8 }}>
+            <PaperClipOutlined style={{ marginRight: 8 }} />
+            Additional Supporting Documents
+          </h4>
+          <div style={{ 
+            fontSize: 12, 
+            color: "#666", 
+            marginBottom: 12,
+            padding: "8px 12px",
+            background: "#f5f5f5",
+            borderRadius: 4
+          }}>
+            Upload any supporting documents not included in the original checklist
+          </div>
+        </div>
+
+        <Upload {...uploadProps}>
           <Button 
             icon={<UploadOutlined />}
             disabled={submitting}
             style={{ marginBottom: 8 }}
           >
-            Upload Additional Documents
+            Click to Upload Supporting Documents
           </Button>
         </Upload>
+
+        {/* Show uploaded files list with exact names */}
+        {additionalFiles.length > 0 && (
+          <div style={{ 
+            marginTop: 12,
+            padding: "16px",
+            background: "#f8f9fa",
+            borderRadius: 6,
+            border: "1px solid #e9ecef"
+          }}>
+            <div style={{ 
+              color: PRIMARY_BLUE, 
+              fontWeight: 600,
+              marginBottom: 12,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between"
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <PaperClipOutlined />
+                <span>Supporting Documents ({additionalFiles.length})</span>
+              </div>
+              <Tag color="blue" style={{ fontWeight: 500 }}>
+                {additionalFiles.length} file{additionalFiles.length !== 1 ? 's' : ''}
+              </Tag>
+            </div>
+            
+            <div style={{ 
+              maxHeight: "200px",
+              overflowY: "auto",
+              paddingRight: 4
+            }}>
+              {additionalFiles.map((file, index) => (
+                <div
+                  key={file.uid || index}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "12px",
+                    marginBottom: 8,
+                    background: "white",
+                    borderRadius: 4,
+                    border: "1px solid #dee2e6",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1 }}>
+                    <div style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 4,
+                      background: PRIMARY_BLUE + "15",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center"
+                    }}>
+                      <FileOutlined style={{ color: PRIMARY_BLUE, fontSize: 18 }} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ 
+                        fontWeight: 600, 
+                        color: "#333",
+                        fontSize: 14,
+                        marginBottom: 2
+                      }}>
+                        {file.name}
+                      </div>
+                      <div style={{ 
+                        fontSize: 12, 
+                        color: "#6c757d",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12
+                      }}>
+                        <span>{formatFileSize(file.size)}</span>
+                        <span>•</span>
+                        <span>{file.type || "Unknown type"}</span>
+                        {file.uploadedAt && (
+                          <>
+                            <span>•</span>
+                            <span>
+                              Uploaded: {new Date(file.uploadedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <Space size={8}>
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<EyeOutlined />}
+                      onClick={() => {
+                        if (file.url) {
+                          window.open(file.url, "_blank");
+                        } else {
+                          message.warning(`Preview not available for ${file.name}`);
+                        }
+                      }}
+                      disabled={submitting || !file.url}
+                      title="Preview file"
+                    />
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<DownloadOutlined />}
+                      onClick={() => {
+                        if (file.url) {
+                          const link = document.createElement('a');
+                          link.href = file.url;
+                          link.download = file.name;
+                          link.click();
+                          message.success(`Downloading ${file.name}`);
+                        }
+                      }}
+                      disabled={submitting || !file.url}
+                      title="Download file"
+                    />
+                    <Button
+                      type="text"
+                      size="small"
+                      danger
+                      icon={<DeleteOutlined />}
+                      onClick={() => removeFile(file)}
+                      disabled={submitting}
+                      title="Remove file"
+                    />
+                  </Space>
+                </div>
+              ))}
+            </div>
+            
+            {/* Summary at bottom */}
+            <div style={{ 
+              marginTop: 12,
+              padding: "8px 12px",
+              background: "#e6f7ff",
+              borderRadius: 4,
+              border: "1px solid #91d5ff",
+              fontSize: 12,
+              color: PRIMARY_BLUE
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span>Total files attached: {additionalFiles.length}</span>
+                <span>
+                  Total size: {formatFileSize(
+                    additionalFiles.reduce((sum, file) => sum + (file.size || 0), 0)
+                  )}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
       </Modal>
     </>
   );
