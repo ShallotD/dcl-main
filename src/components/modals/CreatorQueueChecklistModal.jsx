@@ -29,7 +29,7 @@ const LIGHT_YELLOW = "#fcd716";
 const SECONDARY_PURPLE = "#7e6496";
 
 const customStyles = `
-  .ant-modal-header { background-color: ${PRIMARY_BLUE} !important; color: white !important; }
+  .ant-modal-header { background-color: white !important; color: ${PRIMARY_BLUE} !important; }
   .status-tag { font-weight: 700; border-radius: 999px; padding: 3px 8px; text-transform: capitalize; display: inline-flex; align-items: center; gap: 4px; }
   .ant-input, .ant-input-textarea { border-radius: 6px !important; }
   .doc-table .ant-table-tbody > tr > td { border-bottom: 1px dashed #f0f0f0 !important; }
@@ -69,17 +69,25 @@ const CreatorQueueChecklistModal = ({ checklist, open, onClose }) => {
   };
 
   const handleAdditionalUpload = (file) => {
+    // Extract file information properly
+    const fileName = file.name || `Document_${Date.now()}`;
+    const fileSize = file.size;
+    const fileType = file.type || file.name?.split('.').pop()?.toUpperCase() || 'FILE';
+    
     // Create a preview URL for the file
     const fileWithPreview = {
-      ...file,
+      uid: file.uid || `additional-${Date.now()}-${Math.random()}`,
+      name: fileName,
+      size: fileSize,
+      type: fileType,
+      originalFile: file, // Keep the original file object
       url: URL.createObjectURL(file),
       status: 'done',
-      uid: file.uid || `additional-${Date.now()}-${Math.random()}`,
       uploadedAt: new Date().toISOString()
     };
     
     setAdditionalFiles((prev) => [...prev, fileWithPreview]);
-    message.success(`File uploaded: ${file.name}`);
+    message.success(`File uploaded: ${fileName}`);
     return false; // Prevent default upload behavior
   };
 
@@ -211,26 +219,42 @@ const CreatorQueueChecklistModal = ({ checklist, open, onClose }) => {
   // Check if all docs are approved for overall checklist approval
   const allDocsApproved = docs.length > 0 && docs.every(doc => doc.status === "approved");
 
-  // Upload props configuration - REMOVED FILE TYPE RESTRICTIONS AND LIMIT
-  const uploadProps = {
-    beforeUpload: handleAdditionalUpload,
-    multiple: true,
-    showUploadList: false, // Hide default upload list since we show our own
-    fileList: additionalFiles,
-    onRemove: removeFile,
-    // Removed accept attribute to allow all file types
-    // Removed maxCount attribute to allow unlimited files
-    disabled: submitting,
-  };
-
   // Function to format file size
   const formatFileSize = (bytes) => {
-    if (!bytes) return "Unknown size";
-    if (bytes === 0) return "0 Bytes";
+    if (!bytes || bytes === 0) return "0 Bytes";
     const k = 1024;
     const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  };
+
+  // Function to get file extension type
+  const getFileType = (fileName, fileType) => {
+    if (fileType && fileType !== "FILE") {
+      return fileType.toUpperCase();
+    }
+    if (fileName) {
+      const extension = fileName.split('.').pop().toUpperCase();
+      return extension === fileName ? 'FILE' : extension;
+    }
+    return 'FILE';
+  };
+
+  // Custom request for upload to handle file properly
+  const customRequest = ({ file, onSuccess, onError }) => {
+    // Simulate upload process
+    setTimeout(() => {
+      onSuccess("ok");
+    }, 0);
+  };
+
+  // Upload props configuration
+  const uploadProps = {
+    customRequest: customRequest,
+    beforeUpload: handleAdditionalUpload,
+    multiple: true,
+    showUploadList: false,
+    disabled: submitting,
   };
 
   return (
@@ -311,7 +335,7 @@ const CreatorQueueChecklistModal = ({ checklist, open, onClose }) => {
           </Descriptions>
         </Card>
 
-        {/* Progress Bar Section */}
+        {/* Progress Bar Section - Updated to your requested version */}
         <div
           style={{
             padding: "16px",
@@ -325,18 +349,20 @@ const CreatorQueueChecklistModal = ({ checklist, open, onClose }) => {
             <div style={{ fontWeight: "700", color: PRIMARY_BLUE }}>
               Total Documents: {total}
             </div>
-            <div style={{ fontWeight: "700", color: LIGHT_YELLOW }}>
+
+            <div style={{ fontWeight: "700", color: SECONDARY_PURPLE }}>
               Pending: {pending}
             </div>
+
             <div style={{ fontWeight: "700", color: ACCENT_LIME }}>
               Approved: {approved}
             </div>
-            <div style={{ fontWeight: "700", color: HIGHLIGHT_GOLD }}>
+
+            <div style={{ fontWeight: "700", color: "#ff4d4f" }}>
               Rejected: {rejected}
             </div>
           </div>
 
-          {/* Progress Bar */}
           <div style={{ width: "100%", height: 12, background: "#e0e0e0", borderRadius: 50 }}>
             <div
               style={{
@@ -357,7 +383,7 @@ const CreatorQueueChecklistModal = ({ checklist, open, onClose }) => {
               color: PRIMARY_BLUE,
             }}
           >
-            {progressPercent}% Approved
+            {progressPercent}%
           </div>
         </div>
 
@@ -438,107 +464,114 @@ const CreatorQueueChecklistModal = ({ checklist, open, onClose }) => {
               overflowY: "auto",
               paddingRight: 4
             }}>
-              {additionalFiles.map((file, index) => (
-                <div
-                  key={file.uid || index}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    padding: "12px",
-                    marginBottom: 8,
-                    background: "white",
-                    borderRadius: 4,
-                    border: "1px solid #dee2e6",
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1 }}>
-                    <div style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 4,
-                      background: PRIMARY_BLUE + "15",
+              {additionalFiles.map((file, index) => {
+                const fileType = getFileType(file.name, file.type);
+                const fileSize = formatFileSize(file.size);
+                const uploadTime = file.uploadedAt 
+                  ? new Date(file.uploadedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                  : 'Just now';
+                
+                return (
+                  <div
+                    key={file.uid || index}
+                    style={{
                       display: "flex",
+                      justifyContent: "space-between",
                       alignItems: "center",
-                      justifyContent: "center"
-                    }}>
-                      <FileOutlined style={{ color: PRIMARY_BLUE, fontSize: 18 }} />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ 
-                        fontWeight: 600, 
-                        color: "#333",
-                        fontSize: 14,
-                        marginBottom: 2
-                      }}>
-                        {file.name}
-                      </div>
-                      <div style={{ 
-                        fontSize: 12, 
-                        color: "#6c757d",
+                      padding: "12px",
+                      marginBottom: 8,
+                      background: "white",
+                      borderRadius: 4,
+                      border: "1px solid #dee2e6",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1 }}>
+                      <div style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 4,
+                        background: PRIMARY_BLUE + "15",
                         display: "flex",
                         alignItems: "center",
-                        gap: 12
+                        justifyContent: "center"
                       }}>
-                        <span>{formatFileSize(file.size)}</span>
-                        <span>•</span>
-                        <span>{file.type || "Unknown type"}</span>
-                        {file.uploadedAt && (
-                          <>
-                            <span>•</span>
-                            <span>
-                              Uploaded: {new Date(file.uploadedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          </>
-                        )}
+                        <FileOutlined style={{ color: PRIMARY_BLUE, fontSize: 18 }} />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ 
+                          fontWeight: 600, 
+                          color: "#333",
+                          fontSize: 14,
+                          marginBottom: 2
+                        }}>
+                          {file.name || `Document ${index + 1}`}
+                        </div>
+                        <div style={{ 
+                          fontSize: 12, 
+                          color: "#6c757d",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          flexWrap: 'wrap'
+                        }}>
+                          {fileSize !== "0 Bytes" && (
+                            <>
+                              <span>{fileSize}</span>
+                              <span>•</span>
+                            </>
+                          )}
+                          <span>Type: {fileType}</span>
+                          <span>•</span>
+                          <span>Uploaded: {uploadTime}</span>
+                        </div>
                       </div>
                     </div>
+                    
+                    <Space size={8}>
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<EyeOutlined />}
+                        onClick={() => {
+                          if (file.url) {
+                            window.open(file.url, "_blank");
+                          } else {
+                            message.warning(`Preview not available for ${file.name}`);
+                          }
+                        }}
+                        disabled={submitting || !file.url}
+                        title="Preview file"
+                      />
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<DownloadOutlined />}
+                        onClick={() => {
+                          if (file.url) {
+                            const link = document.createElement('a');
+                            link.href = file.url;
+                            link.download = file.name || `document_${index + 1}`;
+                            link.click();
+                            message.success(`Downloading ${file.name || 'document'}`);
+                          }
+                        }}
+                        disabled={submitting || !file.url}
+                        title="Download file"
+                      />
+                      <Button
+                        type="text"
+                        size="small"
+                        danger
+                        icon={<DeleteOutlined />}
+                        onClick={() => removeFile(file)}
+                        disabled={submitting}
+                        title="Remove file"
+                      />
+                    </Space>
                   </div>
-                  
-                  <Space size={8}>
-                    <Button
-                      type="text"
-                      size="small"
-                      icon={<EyeOutlined />}
-                      onClick={() => {
-                        if (file.url) {
-                          window.open(file.url, "_blank");
-                        } else {
-                          message.warning(`Preview not available for ${file.name}`);
-                        }
-                      }}
-                      disabled={submitting || !file.url}
-                      title="Preview file"
-                    />
-                    <Button
-                      type="text"
-                      size="small"
-                      icon={<DownloadOutlined />}
-                      onClick={() => {
-                        if (file.url) {
-                          const link = document.createElement('a');
-                          link.href = file.url;
-                          link.download = file.name;
-                          link.click();
-                          message.success(`Downloading ${file.name}`);
-                        }
-                      }}
-                      disabled={submitting || !file.url}
-                      title="Download file"
-                    />
-                    <Button
-                      type="text"
-                      size="small"
-                      danger
-                      icon={<DeleteOutlined />}
-                      onClick={() => removeFile(file)}
-                      disabled={submitting}
-                      title="Remove file"
-                    />
-                  </Space>
-                </div>
-              ))}
+                );
+              })}
             </div>
             
             {/* Summary at bottom */}
