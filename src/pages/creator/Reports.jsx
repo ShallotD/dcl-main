@@ -1,40 +1,41 @@
 // src/pages/Reports.jsx
 import React, { useState, useMemo } from "react";
-import {
+import { 
   Tabs,
   Table,
-  Input,
-  DatePicker,
-  Select,
-  Space,
-  Typography,
+  Button,
+  Divider,
   Tag,
+  Spin,
+  Empty,
   Card,
   Row,
   Col,
-  Button,
+  Input,
+  Select,
+  DatePicker,
+  Badge,
   Tooltip,
-  Divider,
-  Badge
+  Space,
+  Typography
 } from "antd";
-import {
+import { 
+  SearchOutlined, 
+  DownloadOutlined, 
   CheckCircleOutlined,
   CloseCircleOutlined,
   FileTextOutlined,
-  DownloadOutlined,
-  SearchOutlined,
   UserOutlined,
+  CustomerServiceOutlined,
   ClockCircleOutlined,
   WarningOutlined,
-  ExclamationCircleOutlined,
-  CustomerServiceOutlined
+  ExclamationCircleOutlined
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 
 const { TabPane } = Tabs;
 const { RangePicker } = DatePicker;
 const { Title, Text } = Typography;
-const { Search } = Input;
 const { Option } = Select;
 
 // Theme Colors (matching Deferrals component)
@@ -236,6 +237,7 @@ export default function Reports() {
   const [dateRange, setDateRange] = useState(null);
   const [statusFilter, setStatusFilter] = useState("All");
   const [activeTab, setActiveTab] = useState("postApproval");
+  const [loading, setLoading] = useState(false);
 
   // Filter functions
   const filteredPostApprovalDeferrals = useMemo(() => {
@@ -290,79 +292,123 @@ export default function Reports() {
     );
   }, [statusFilter, searchText]);
 
-  // Timeline render function for expiry date
-  const renderExpiryDate = (record) => {
-    const expiryDate = dayjs(record.expiryDate);
-    const now = dayjs();
-    const daysRemaining = expiryDate.diff(now, 'day');
-    const isExpired = daysRemaining < 0;
-    const isExpiringSoon = daysRemaining <= 3 && daysRemaining >= 0;
+  // Clear all filters
+  const clearAllFilters = () => {
+    setSearchText("");
+    setDateRange(null);
+    setStatusFilter("All");
+  };
 
-    let statusColor = SUCCESS_GREEN;
-    let statusIcon = <ClockCircleOutlined />;
-    let statusText = `${daysRemaining}d left`;
-
-    if (isExpired) {
-      statusColor = ERROR_RED;
-      statusIcon = <ExclamationCircleOutlined />;
-      statusText = `Expired`;
-    } else if (isExpiringSoon) {
-      statusColor = WARNING_ORANGE;
-      statusIcon = <WarningOutlined />;
-      statusText = `${daysRemaining}d left`;
+  // Get current tab data count
+  const getCurrentDataCount = () => {
+    switch (activeTab) {
+      case "postApproval":
+        return filteredPostApprovalDeferrals.length;
+      case "rejected":
+        return filteredRejectedDeferrals.length;
+      case "allDCLs":
+        return filteredAllDCLs.length;
+      default:
+        return 0;
     }
-
-    return (
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        {React.cloneElement(statusIcon, { style: { color: statusColor, fontSize: 14 } })}
-        <span style={{ fontWeight: "bold", color: statusColor, fontSize: 12 }}>
-          {dayjs(record.expiryDate).format("DD/MM/YYYY")}
-        </span>
-      </div>
-    );
   };
 
-  // Status render function
-  const renderStatus = (status, isApproved = false) => {
-    const statusConfig = {
-      "Approved": { 
-        color: SUCCESS_GREEN, 
-        icon: <CheckCircleOutlined />,
-        text: "Approved" 
-      },
-      "Rejected": { 
-        color: ERROR_RED, 
-        icon: <CloseCircleOutlined />,
-        text: "Rejected" 
-      }
-    };
+  // Export functionality
+  const exportReport = () => {
+    let data = [];
+    let filename = "";
     
-    const config = statusConfig[status] || { color: "default", icon: null, text: status };
+    if (activeTab === "postApproval") {
+      data = filteredPostApprovalDeferrals;
+      filename = `post_approval_deferrals_${dayjs().format('YYYYMMDD_HHmmss')}.csv`;
+    } else if (activeTab === "rejected") {
+      data = filteredRejectedDeferrals;
+      filename = `rejected_deferrals_${dayjs().format('YYYYMMDD_HHmmss')}.csv`;
+    } else {
+      data = filteredAllDCLs;
+      filename = `all_dcls_${dayjs().format('YYYYMMDD_HHmmss')}.csv`;
+    }
     
-    return (
-      <Tag 
-        color={config.color}
-        style={{ 
-          fontWeight: "bold",
-          fontSize: 11,
-          padding: "4px 8px",
-          display: "flex",
-          alignItems: "center",
-          gap: 4
-        }}
-        icon={config.icon}
-      >
-        {config.text}
-      </Tag>
-    );
+    const csvContent = "data:text/csv;charset=utf-8," + 
+      data.map(row => Object.values(row).join(",")).join("\n");
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
+
+  // Filter component (matching Deferrals component style)
+  const renderFilters = () => (
+    <Card 
+      style={{ 
+        marginBottom: 16,
+        background: "#fafafa",
+        border: `1px solid ${PRIMARY_BLUE}20`
+      }}
+      size="small"
+    >
+      <Row gutter={[16, 16]} align="middle">
+        <Col xs={24} sm={12} md={8}>
+          <Input
+            placeholder="Search by DCL No, Customer No, or Name"
+            prefix={<SearchOutlined />}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            allowClear
+          />
+        </Col>
+        
+        {activeTab !== "allDCLs" && (
+          <Col xs={24} sm={12} md={8}>
+            <RangePicker
+              style={{ width: '100%' }}
+              placeholder={['Start Date', 'End Date']}
+              value={dateRange}
+              onChange={(dates) => setDateRange(dates)}
+              format="DD/MM/YYYY"
+            />
+          </Col>
+        )}
+        
+        {activeTab === "allDCLs" && (
+          <Col xs={24} sm={12} md={6}>
+            <Select
+              style={{ width: '100%' }}
+              placeholder="Status"
+              value={statusFilter}
+              onChange={(value) => setStatusFilter(value)}
+              allowClear
+            >
+              <Option value="All">All Statuses</Option>
+              <Option value="Completed">Completed</Option>
+              <Option value="Active">Active</Option>
+              <Option value="Deferred">Deferred</Option>
+            </Select>
+          </Col>
+        )}
+        
+        <Col xs={24} sm={12} md={activeTab === "allDCLs" ? 2 : 2}>
+          <Button 
+            onClick={clearAllFilters}
+            style={{ width: '100%' }}
+          >
+            Clear
+          </Button>
+        </Col>
+      </Row>
+    </Card>
+  );
 
   // Common columns for Post-approval and Rejected Deferrals
   const commonDeferralColumns = [
     { 
       title: "DCL No", 
       dataIndex: "dclNo", 
-      width: 160, 
+      width: 150,
       render: (text) => (
         <div style={{ fontWeight: "bold", color: PRIMARY_BLUE, display: "flex", alignItems: "center", gap: 8 }}>
           <FileTextOutlined style={{ color: SECONDARY_PURPLE }} />
@@ -373,7 +419,7 @@ export default function Reports() {
     { 
       title: "Customer No", 
       dataIndex: "customerNumber", 
-      width: 130, 
+      width: 120,
       render: (text) => (
         <div style={{ color: SECONDARY_PURPLE, fontWeight: 500, fontSize: 13 }}>
           {text}
@@ -383,7 +429,7 @@ export default function Reports() {
     { 
       title: "Customer Name", 
       dataIndex: "customerName", 
-      width: 200, 
+      width: 180,
       render: (text) => (
         <div style={{ fontWeight: 600, color: PRIMARY_BLUE }}>
           {text}
@@ -393,7 +439,7 @@ export default function Reports() {
     { 
       title: "Document", 
       dataIndex: "document", 
-      width: 180, 
+      width: 160,
       render: (text) => (
         <div style={{ fontWeight: 500, color: PRIMARY_BLUE }}>
           {text}
@@ -403,7 +449,7 @@ export default function Reports() {
     { 
       title: "RM", 
       dataIndex: "assignedRM", 
-      width: 140, 
+      width: 130,
       render: (rm) => (
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           <UserOutlined style={{ color: PRIMARY_BLUE, fontSize: 12 }} />
@@ -414,7 +460,7 @@ export default function Reports() {
     { 
       title: "Reason", 
       dataIndex: "reason", 
-      width: 220, 
+      width: 200,
       render: (text) => (
         <div style={{ 
           fontStyle: "italic", 
@@ -429,13 +475,42 @@ export default function Reports() {
     { 
       title: "Expiry Date", 
       dataIndex: "expiryDate", 
-      width: 140, 
-      render: (date, record) => renderExpiryDate(record)
+      width: 130,
+      render: (date, record) => {
+        const expiryDate = dayjs(record.expiryDate);
+        const now = dayjs();
+        const daysRemaining = expiryDate.diff(now, 'day');
+        const isExpired = daysRemaining < 0;
+        const isExpiringSoon = daysRemaining <= 3 && daysRemaining >= 0;
+
+        let statusColor = SUCCESS_GREEN;
+        let statusIcon = <ClockCircleOutlined />;
+        let statusText = `${daysRemaining}d left`;
+
+        if (isExpired) {
+          statusColor = ERROR_RED;
+          statusIcon = <ExclamationCircleOutlined />;
+          statusText = `Expired`;
+        } else if (isExpiringSoon) {
+          statusColor = WARNING_ORANGE;
+          statusIcon = <WarningOutlined />;
+          statusText = `${daysRemaining}d left`;
+        }
+
+        return (
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            {React.cloneElement(statusIcon, { style: { color: statusColor, fontSize: 14 } })}
+            <span style={{ fontWeight: "bold", color: statusColor, fontSize: 12 }}>
+              {dayjs(record.expiryDate).format("DD/MM/YYYY")}
+            </span>
+          </div>
+        );
+      }
     },
     { 
       title: "Creator Comment", 
       dataIndex: "creatorComments", 
-      width: 220, 
+      width: 200,
       render: (text) => (
         <div style={{ 
           fontSize: 12, 
@@ -452,7 +527,7 @@ export default function Reports() {
     { 
       title: "Decision Date", 
       dataIndex: "decisionDate", 
-      width: 130, 
+      width: 120,
       render: (date) => (
         <div style={{ fontWeight: 500, color: PRIMARY_BLUE }}>
           {date ? dayjs(date).format("DD/MM/YYYY") : "-"}
@@ -462,13 +537,33 @@ export default function Reports() {
     { 
       title: "Status", 
       dataIndex: "status", 
-      width: 110, 
+      width: 130,
       fixed: "right",
-      render: (status, record) => renderStatus(status, record.status === "Approved")
+      render: (status) => (
+        <div style={{ minWidth: 100 }}>
+          <Tag 
+            color={status === "Approved" ? SUCCESS_GREEN : ERROR_RED}
+            style={{ 
+              fontWeight: "bold",
+              fontSize: 12,
+              padding: "6px 12px",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              width: "100%",
+              justifyContent: "center",
+              minWidth: 90
+            }}
+            icon={status === "Approved" ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
+          >
+            {status}
+          </Tag>
+        </div>
+      )
     }
   ];
 
-  // All DCLs columns (maintained as before)
+  // All DCLs columns
   const allDCLColumns = [
     { 
       title: "DCL No", 
@@ -639,103 +734,104 @@ export default function Reports() {
     }
   ];
 
-  // Export functionality
-  const exportReport = () => {
-    let data = [];
-    let filename = "";
-    
-    if (activeTab === "postApproval") {
-      data = filteredPostApprovalDeferrals;
-      filename = `post_approval_deferrals_${dayjs().format('YYYYMMDD_HHmmss')}.csv`;
-    } else if (activeTab === "rejected") {
-      data = filteredRejectedDeferrals;
-      filename = `rejected_deferrals_${dayjs().format('YYYYMMDD_HHmmss')}.csv`;
-    } else {
-      data = filteredAllDCLs;
-      filename = `all_dcls_${dayjs().format('YYYYMMDD_HHmmss')}.csv`;
+  // Custom table styles (matching Deferrals component)
+  const customTableStyles = `
+    .reports-table .ant-table-wrapper { 
+      border-radius: 12px; 
+      overflow: hidden; 
+      box-shadow: 0 10px 30px rgba(22, 70, 121, 0.08); 
+      border: 1px solid #e0e0e0; 
     }
-    
-    const csvContent = "data:text/csv;charset=utf-8," + 
-      data.map(row => Object.values(row).join(",")).join("\n");
-    
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", filename);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    .reports-table .ant-table-thead > tr > th { 
+      background-color: #f7f7f7 !important; 
+      color: ${PRIMARY_BLUE} !important; 
+      font-weight: 700; 
+      font-size: 15px; 
+      padding: 16px 16px !important; 
+      border-bottom: 3px solid ${ACCENT_LIME} !important; 
+      border-right: none !important; 
+    }
+    .reports-table .ant-table-tbody > tr > td { 
+      border-bottom: 1px solid #f0f0f0 !important; 
+      border-right: none !important; 
+      padding: 14px 16px !important; 
+      font-size: 14px; 
+      color: #333; 
+    }
+    .reports-table .ant-table-tbody > tr.ant-table-row:hover > td { 
+      background-color: rgba(181, 211, 52, 0.1) !important; 
+    }
+    .reports-table .ant-table-bordered .ant-table-container, 
+    .reports-table .ant-table-bordered .ant-table-tbody > tr > td, 
+    .reports-table .ant-table-bordered .ant-table-thead > tr > th { 
+      border: none !important; 
+    }
+    .reports-table .ant-pagination .ant-pagination-item-active { 
+      background-color: ${ACCENT_LIME} !important; 
+      border-color: ${ACCENT_LIME} !important; 
+    }
+    .reports-table .ant-pagination .ant-pagination-item-active a { 
+      color: ${PRIMARY_BLUE} !important; 
+      font-weight: 600; 
+    }
+    .reports-table .ant-pagination .ant-pagination-item:hover { 
+      border-color: ${ACCENT_LIME} !important; 
+    }
+    .reports-table .ant-pagination .ant-pagination-prev:hover .ant-pagination-item-link, 
+    .reports-table .ant-pagination .ant-pagination-next:hover .ant-pagination-item-link { 
+      color: ${ACCENT_LIME} !important; 
+    }
+    .reports-table .ant-pagination .ant-pagination-options .ant-select-selector { 
+      border-radius: 8px !important; 
+    }
+  `;
+
+  // Get current data for active tab
+  const getCurrentData = () => {
+    switch (activeTab) {
+      case "postApproval":
+        return filteredPostApprovalDeferrals;
+      case "rejected":
+        return filteredRejectedDeferrals;
+      case "allDCLs":
+        return filteredAllDCLs;
+      default:
+        return [];
+    }
   };
 
-  // Render filters component
-  const renderFilters = () => (
-    <Card 
-      style={{ 
-        marginBottom: 16,
-        background: "#fafafa",
-        border: `1px solid rgba(22, 70, 121, 0.1)`
-      }}
-      size="small"
-    >
-      <Row gutter={[16, 16]} align="middle">
-        <Col xs={24} sm={12} md={8}>
-          <Input
-            placeholder="Search by DCL No, Customer No, or Name"
-            prefix={<SearchOutlined />}
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            allowClear
-          />
-        </Col>
-        
-        {activeTab !== "allDCLs" && (
-          <Col xs={24} sm={12} md={8}>
-            <RangePicker
-              style={{ width: '100%' }}
-              placeholder={['Start Date', 'End Date']}
-              value={dateRange}
-              onChange={(dates) => setDateRange(dates)}
-              format="DD/MM/YYYY"
-            />
-          </Col>
-        )}
-        
-        {activeTab === "allDCLs" && (
-          <Col xs={24} sm={12} md={8}>
-            <Select
-              style={{ width: '100%' }}
-              placeholder="Filter by Status"
-              value={statusFilter}
-              onChange={(value) => setStatusFilter(value)}
-              allowClear
-            >
-              <Option value="All">All Statuses</Option>
-              <Option value="Completed">Completed</Option>
-              <Option value="Active">Active</Option>
-              <Option value="Deferred">Deferred</Option>
-            </Select>
-          </Col>
-        )}
-        
-        <Col xs={24} sm={12} md={activeTab === "allDCLs" ? 8 : 4}>
-          <Button 
-            onClick={() => {
-              setSearchText("");
-              setDateRange(null);
-              setStatusFilter("All");
-            }}
-            style={{ width: '100%' }}
-          >
-            Clear Filters
-          </Button>
-        </Col>
-      </Row>
-    </Card>
-  );
+  // Get current columns for active tab
+  const getCurrentColumns = () => {
+    switch (activeTab) {
+      case "postApproval":
+      case "rejected":
+        return commonDeferralColumns;
+      case "allDCLs":
+        return allDCLColumns;
+      default:
+        return [];
+    }
+  };
+
+  // Get tab title
+  const getTabTitle = () => {
+    switch (activeTab) {
+      case "postApproval":
+        return "Post-approval Deferrals";
+      case "rejected":
+        return "Rejected Deferrals";
+      case "allDCLs":
+        return "All DCLs";
+      default:
+        return "";
+    }
+  };
 
   return (
     <div style={{ padding: 24 }}>
-      {/* Header */}
+      <style>{customTableStyles}</style>
+
+      {/* Header - Matching Deferrals component style */}
       <Card
         style={{ 
           marginBottom: 24,
@@ -747,13 +843,19 @@ export default function Reports() {
       >
         <Row justify="space-between" align="middle">
           <Col>
-            <Title level={3} style={{ margin: 0, color: PRIMARY_BLUE, display: "flex", alignItems: "center", gap: 12 }}>
-              <FileTextOutlined />
+            <h2 style={{ margin: 0, color: PRIMARY_BLUE, display: "flex", alignItems: "center", gap: 12 }}>
               DCL Reports & Analytics
-            </Title>
-            <Text style={{ margin: "4px 0 0", color: "#666", fontSize: 14 }}>
+              <Badge 
+                count={getCurrentDataCount()} 
+                style={{ 
+                  backgroundColor: ACCENT_LIME,
+                  fontSize: 12
+                }}
+              />
+            </h2>
+            <p style={{ margin: "4px 0 0", color: "#666", fontSize: 14 }}>
               Comprehensive reports on deferrals and DCL statuses
-            </Text>
+            </p>
           </Col>
           
           <Col>
@@ -762,7 +864,7 @@ export default function Reports() {
                 <Button 
                   icon={<DownloadOutlined />} 
                   onClick={exportReport}
-                  type="primary"
+                  disabled={getCurrentDataCount() === 0}
                 >
                   Export Report
                 </Button>
@@ -772,151 +874,94 @@ export default function Reports() {
         </Row>
       </Card>
 
-      {/* Tabs Section */}
-      <Card>
-        <Tabs 
-          activeKey={activeTab} 
-          onChange={(key) => {
-            setActiveTab(key);
-            setSearchText("");
-            setDateRange(null);
-            if (key !== "allDCLs") setStatusFilter("All");
-          }}
-          type="card"
-        >
-          {/* Post-approval Deferrals */}
-          <TabPane 
-            tab={
-              <span>
-                <CheckCircleOutlined />
-                Post-approval Deferrals
-              </span>
-            } 
-            key="postApproval"
-          >
-            {/* Table Title */}
-            <Divider style={{ margin: "12px 0" }}>
-              <span style={{ color: PRIMARY_BLUE, fontSize: 16, fontWeight: 600 }}>
-                Post-approval Deferrals ({filteredPostApprovalDeferrals.length} items)
-              </span>
-            </Divider>
+      {/* Filters - Matching Deferrals component style */}
+      {renderFilters()}
 
-            {/* Filters */}
-            {renderFilters()}
+      {/* Tabs - Matching Deferrals component style */}
+      <Tabs 
+        activeKey={activeTab} 
+        onChange={(key) => {
+          setActiveTab(key);
+          clearAllFilters();
+        }}
+        type="card"
+        size="large"
+        style={{ marginBottom: 16 }}
+      >
+        <TabPane 
+          tab={
+            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <CheckCircleOutlined />
+              Post-approval Deferrals
+            </span>
+          } 
+          key="postApproval"
+        />
+        <TabPane 
+          tab={
+            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <CloseCircleOutlined />
+              Rejected Deferrals
+            </span>
+          } 
+          key="rejected"
+        />
+        <TabPane 
+          tab={
+            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <FileTextOutlined />
+              All DCLs
+            </span>
+          } 
+          key="allDCLs"
+        />
+      </Tabs>
 
-            {/* Table */}
-            <Table 
-              columns={commonDeferralColumns}
-              dataSource={filteredPostApprovalDeferrals}
-              rowKey="id"
-              size="large" 
-              pagination={{ 
-                pageSize: 10, 
-                showSizeChanger: true, 
-                pageSizeOptions: ["10", "20", "50"], 
-                position: ["bottomCenter"],
-                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} deferrals`
-              }} 
-              rowClassName={(record, index) => (index % 2 === 0 ? "bg-white" : "bg-gray-50")}
-              scroll={{ x: 1500 }}
-              style={{
-                borderRadius: 12,
-                boxShadow: "0 10px 30px rgba(22, 70, 121, 0.08)",
-                border: "1px solid #e0e0e0",
-                overflow: "hidden"
-              }}
-            />
-          </TabPane>
+      {/* Table Title - Matching Deferrals component style */}
+      <Divider style={{ margin: "12px 0" }}>
+        <span style={{ color: PRIMARY_BLUE, fontSize: 16, fontWeight: 600 }}>
+          {getTabTitle()} ({getCurrentDataCount()} items)
+        </span>
+      </Divider>
 
-          {/* Rejected Deferrals */}
-          <TabPane 
-            tab={
-              <span>
-                <CloseCircleOutlined />
-                Rejected Deferrals
-              </span>
-            } 
-            key="rejected"
-          >
-            {/* Table Title */}
-            <Divider style={{ margin: "12px 0" }}>
-              <span style={{ color: PRIMARY_BLUE, fontSize: 16, fontWeight: 600 }}>
-                Rejected Deferrals ({filteredRejectedDeferrals.length} items)
-              </span>
-            </Divider>
-
-            {/* Filters */}
-            {renderFilters()}
-
-            {/* Table */}
-            <Table 
-              columns={commonDeferralColumns}
-              dataSource={filteredRejectedDeferrals}
-              rowKey="id"
-              size="large" 
-              pagination={{ 
-                pageSize: 10, 
-                showSizeChanger: true, 
-                pageSizeOptions: ["10", "20", "50"], 
-                position: ["bottomCenter"],
-                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} deferrals`
-              }} 
-              rowClassName={(record, index) => (index % 2 === 0 ? "bg-white" : "bg-gray-50")}
-              scroll={{ x: 1500 }}
-              style={{
-                borderRadius: 12,
-                boxShadow: "0 10px 30px rgba(22, 70, 121, 0.08)",
-                border: "1px solid #e0e0e0",
-                overflow: "hidden"
-              }}
-            />
-          </TabPane>
-
-          {/* All DCLs */}
-          <TabPane 
-            tab={
-              <span>
-                <FileTextOutlined />
-                All DCLs
-              </span>
-            } 
-            key="allDCLs"
-          >
-            {/* Table Title */}
-            <Divider style={{ margin: "12px 0" }}>
-              <span style={{ color: PRIMARY_BLUE, fontSize: 16, fontWeight: 600 }}>
-                All DCLs ({filteredAllDCLs.length} items)
-              </span>
-            </Divider>
-
-            {/* Filters */}
-            {renderFilters()}
-
-            {/* Table */}
-            <Table 
-              columns={allDCLColumns}
-              dataSource={filteredAllDCLs}
-              rowKey="id"
-              size="large" 
-              pagination={{ 
-                pageSize: 10, 
-                showSizeChanger: true, 
-                pageSizeOptions: ["10", "20", "50"], 
-                position: ["bottomCenter"],
-                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} DCLs`
-              }} 
-              rowClassName={(record, index) => (index % 2 === 0 ? "bg-white" : "bg-gray-50")}
-              scroll={{ x: 1400 }}
-              style={{
-                borderRadius: 12,
-                boxShadow: "0 10px 30px rgba(22, 70, 121, 0.08)",
-                border: "1px solid #e0e0e0",
-                overflow: "hidden"
-              }}
-            />
-          </TabPane>
-        </Tabs>
-      </Card>
+      {/* Table - Matching Deferrals component style */}
+      {loading ? (
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: 40 }}>
+          <Spin tip="Loading reports..." />
+        </div>
+      ) : getCurrentDataCount() === 0 ? (
+        <Empty 
+          description={
+            <div>
+              <p style={{ fontSize: 16, marginBottom: 8 }}>No data found</p>
+              <p style={{ color: "#999" }}>
+                {searchText || dateRange || statusFilter !== "All" 
+                  ? 'Try changing your filters' 
+                  : 'No data available'}
+              </p>
+            </div>
+          } 
+          style={{ padding: 40 }} 
+        />
+      ) : (
+        <div className="reports-table">
+          <Table 
+            columns={getCurrentColumns()} 
+            dataSource={getCurrentData()} 
+            rowKey="id" 
+            size="large" 
+            pagination={{ 
+              pageSize: 10, 
+              showSizeChanger: true, 
+              pageSizeOptions: ["10", "20", "50"], 
+              position: ["bottomCenter"],
+              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`
+            }} 
+            rowClassName={(record, index) => (index % 2 === 0 ? "bg-white" : "bg-gray-50")}
+            scroll={{ x: 1400 }}
+          />
+        </div>
+      )}
 
       {/* Footer Info */}
       <div style={{ 
