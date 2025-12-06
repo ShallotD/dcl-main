@@ -14,15 +14,21 @@ import {
   Col,
   Statistic,
   Button,
-  Tooltip
+  Tooltip,
+  Divider,
+  Badge
 } from "antd";
 import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   FileTextOutlined,
   DownloadOutlined,
-  ReloadOutlined,
-  SearchOutlined
+  SearchOutlined,
+  UserOutlined,
+  ClockCircleOutlined,
+  WarningOutlined,
+  ExclamationCircleOutlined,
+  CustomerServiceOutlined
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 
@@ -30,95 +36,116 @@ const { TabPane } = Tabs;
 const { RangePicker } = DatePicker;
 const { Title, Text } = Typography;
 const { Search } = Input;
+const { Option } = Select;
 
-// Theme Colors
+// Theme Colors (matching Deferrals component)
 const PRIMARY_BLUE = "#164679";
 const ACCENT_LIME = "#b5d334";
+const HIGHLIGHT_GOLD = "#fcb116";
+const LIGHT_YELLOW = "#fcd716";
+const SECONDARY_PURPLE = "#7e6496";
 const SUCCESS_GREEN = "#52c41a";
 const ERROR_RED = "#ff4d4f";
 const WARNING_ORANGE = "#faad14";
 const INFO_BLUE = "#1890ff";
-const PURPLE = "#722ed1"; // Moved up to fix the error
 
-// Mock Data - Updated with proper statuses
+// Mock Data
 const MOCK_DCLS = [
   {
     id: "DCL-10001",
-    dclNo: "DCL-10001",
-    customerNo: "458921",
-    customerName: "John Doe Enterprises",
+    dclNo: "DCL-2024-10001",
+    customerNumber: "458921",
+    customerName: "Tech Innovations Ltd",
+    documentName: "Business Registration Certificate",
     workstep: "WS-001",
     product: "Personal Loan",
     status: "Completed",
     completedDate: "2025-11-20",
     loanAmount: "KES 500,000",
-    assignedRM: "Sarah Johnson",
-    deferralStatus: "None"
+    assignedRM: { name: "Sarah Johnson" },
+    deferralStatus: "None",
+    expiryDate: "2025-12-31",
+    daysRemaining: 25
   },
   {
     id: "DCL-10002",
-    dclNo: "DCL-10002",
-    customerNo: "772194",
+    dclNo: "DCL-2024-10002",
+    customerNumber: "772194",
     customerName: "Jane Smith Ltd",
+    documentName: "Latest Bank Statements",
     workstep: "WS-002",
     product: "Home Loan",
     status: "Active",
     completedDate: null,
     loanAmount: "KES 8,000,000",
-    assignedRM: "Michael Brown",
-    deferralStatus: "None"
+    assignedRM: { name: "Michael Brown" },
+    deferralStatus: "None",
+    expiryDate: "2025-12-15",
+    daysRemaining: 10
   },
   {
     id: "DCL-10003",
-    dclNo: "DCL-10003",
-    customerNo: "993015",
+    dclNo: "DCL-2024-10003",
+    customerNumber: "993015",
     customerName: "Robert Kamau Enterprises",
+    documentName: "Tax Compliance Certificate",
     workstep: "WS-003",
     product: "Credit Card",
     status: "Deferred",
     completedDate: "2025-11-25",
     loanAmount: "KES 1,000,000",
-    assignedRM: "Alice Williams",
-    deferralStatus: "Approved"
+    assignedRM: { name: "Alice Williams" },
+    deferralStatus: "Approved",
+    expiryDate: "2025-12-10",
+    daysRemaining: 5
   },
   {
     id: "DCL-10004",
-    dclNo: "DCL-10004",
-    customerNo: "551002",
+    dclNo: "DCL-2024-10004",
+    customerNumber: "551002",
     customerName: "Green Farms Co-op",
+    documentName: "Audited Financial Statements",
     workstep: "WS-004",
     product: "Car Loan",
     status: "Completed",
     completedDate: "2025-11-22",
     loanAmount: "KES 3,500,000",
-    assignedRM: "David Miller",
-    deferralStatus: "None"
+    assignedRM: { name: "David Miller" },
+    deferralStatus: "None",
+    expiryDate: "2025-12-25",
+    daysRemaining: 30
   },
   {
     id: "DCL-10005",
-    dclNo: "DCL-10005",
-    customerNo: "663018",
+    dclNo: "DCL-2024-10005",
+    customerNumber: "663018",
     customerName: "Tech Solutions Ltd",
+    documentName: "Bank Statements",
     workstep: "WS-005",
     product: "Business Loan",
     status: "Active",
     completedDate: null,
     loanAmount: "KES 12,000,000",
-    assignedRM: "John Doe",
-    deferralStatus: "Rejected"
+    assignedRM: { name: "John Doe" },
+    deferralStatus: "Rejected",
+    expiryDate: "2025-12-05",
+    daysRemaining: -2
   },
   {
     id: "DCL-10006",
-    dclNo: "DCL-10006",
-    customerNo: "774029",
+    dclNo: "DCL-2024-10006",
+    customerNumber: "774029",
     customerName: "Smart Investments",
+    documentName: "Audited Financial Statements",
     workstep: "WS-006",
     product: "Investment Loan",
     status: "Completed",
     completedDate: "2025-11-18",
     loanAmount: "KES 6,000,000",
-    assignedRM: "Jane Smith",
-    deferralStatus: "Approved"
+    assignedRM: { name: "Jane Smith" },
+    deferralStatus: "Approved",
+    expiryDate: "2025-12-15",
+    daysRemaining: 12
   },
 ];
 
@@ -126,8 +153,8 @@ const MOCK_DEFERRALS = [
   // Post-approval deferrals (Approved by creator)
   {
     id: "DEF-001",
-    dclNo: "DCL-10003",
-    customerNo: "993015",
+    dclNo: "DCL-2024-10003",
+    customerNumber: "993015",
     customerName: "Robert Kamau Enterprises",
     workstep: "WS-003",
     document: "Credit Report",
@@ -140,12 +167,18 @@ const MOCK_DEFERRALS = [
     loanAmount: "KES 1,000,000",
     product: "Credit Card",
     dateRequested: "2025-11-24",
-    assignedRM: "Alice Williams"
+    assignedRM: { name: "Alice Williams" },
+    priority: "medium",
+    daysRemaining: 5,
+    documents: [
+      { name: "Credit Report", status: "pending" },
+      { name: "ID Copy", status: "uploaded" }
+    ]
   },
   {
     id: "DEF-002",
-    dclNo: "DCL-10006",
-    customerNo: "774029",
+    dclNo: "DCL-2024-10006",
+    customerNumber: "774029",
     customerName: "Smart Investments",
     workstep: "WS-006",
     document: "Audited Financial Statements",
@@ -158,32 +191,20 @@ const MOCK_DEFERRALS = [
     loanAmount: "KES 6,000,000",
     product: "Investment Loan",
     dateRequested: "2025-11-18",
-    assignedRM: "Jane Smith"
-  },
-  {
-    id: "DEF-003",
-    dclNo: "DCL-10007",
-    customerNo: "885112",
-    customerName: "Urban Development Ltd",
-    workstep: "WS-007",
-    document: "Title Deed Verification",
-    reason: "County government delay in processing",
-    expiryDate: "2025-12-20",
-    creatorComments: "Approved given government-related delays",
-    status: "Approved",
-    decisionDate: "2025-11-28",
-    decisionBy: "John Creator",
-    loanAmount: "KES 15,000,000",
-    product: "Mortgage",
-    dateRequested: "2025-11-27",
-    assignedRM: "Robert Johnson"
+    assignedRM: { name: "Jane Smith" },
+    priority: "low",
+    daysRemaining: 12,
+    documents: [
+      { name: "Financial Statements", status: "pending" },
+      { name: "Tax Returns", status: "uploaded" }
+    ]
   },
 
   // Rejected deferrals (Rejected by creator)
   {
     id: "DEF-004",
-    dclNo: "DCL-10005",
-    customerNo: "663018",
+    dclNo: "DCL-2024-10005",
+    customerNumber: "663018",
     customerName: "Tech Solutions Ltd",
     workstep: "WS-005",
     document: "Bank Statements",
@@ -196,12 +217,18 @@ const MOCK_DEFERRALS = [
     loanAmount: "KES 12,000,000",
     product: "Business Loan",
     dateRequested: "2025-11-25",
-    assignedRM: "John Doe"
+    assignedRM: { name: "John Doe" },
+    priority: "high",
+    daysRemaining: -2,
+    documents: [
+      { name: "Bank Statements", status: "pending" },
+      { name: "Business License", status: "uploaded" }
+    ]
   },
   {
     id: "DEF-005",
-    dclNo: "DCL-10008",
-    customerNo: "996023",
+    dclNo: "DCL-2024-10008",
+    customerNumber: "996023",
     customerName: "Quick Retail Ltd",
     workstep: "WS-008",
     document: "Tax Compliance Certificate",
@@ -214,27 +241,15 @@ const MOCK_DEFERRALS = [
     loanAmount: "KES 2,500,000",
     product: "Overdraft Facility",
     dateRequested: "2025-11-28",
-    assignedRM: "Sarah Williams"
+    assignedRM: { name: "Sarah Williams" },
+    priority: "medium",
+    daysRemaining: 9,
+    documents: [
+      { name: "KRA Certificate", status: "pending" },
+      { name: "Business Permit", status: "uploaded" }
+    ]
   },
 ];
-
-// Helper to render status tags consistently
-const STATUS_COLOR_MAP = {
-  Completed: SUCCESS_GREEN,
-  Active: INFO_BLUE,
-  Deferred: WARNING_ORANGE,
-  "Returned by Checker": ERROR_RED,
-  "Pending RM": PURPLE,
-  Approved: SUCCESS_GREEN,
-  Rejected: ERROR_RED,
-  "Pending Approval": "gold",
-};
-
-const DCL_STATUS_COLOR_MAP = {
-  Completed: SUCCESS_GREEN,
-  Active: INFO_BLUE,
-  Deferred: WARNING_ORANGE,
-};
 
 export default function Reports() {
   // Shared filters
@@ -261,13 +276,13 @@ export default function Reports() {
     };
   }, []);
 
-  // Filtered Post-Approval Deferrals (Tab A - Approved by creator)
+  // Filter functions
   const filteredPostApprovalDeferrals = useMemo(() => {
     return MOCK_DEFERRALS.filter(
       (d) =>
         d.status === "Approved" &&
         (searchText === "" ||
-          d.customerNo.includes(searchText) ||
+          d.customerNumber.includes(searchText) ||
           d.dclNo.includes(searchText) ||
           d.customerName.toLowerCase().includes(searchText.toLowerCase()) ||
           d.workstep.toLowerCase().includes(searchText.toLowerCase())) &&
@@ -282,13 +297,12 @@ export default function Reports() {
     );
   }, [searchText, dateRange]);
 
-  // Filtered Rejected Deferrals (Tab B - Rejected by creator)
   const filteredRejectedDeferrals = useMemo(() => {
     return MOCK_DEFERRALS.filter(
       (d) =>
         d.status === "Rejected" &&
         (searchText === "" ||
-          d.customerNo.includes(searchText) ||
+          d.customerNumber.includes(searchText) ||
           d.dclNo.includes(searchText) ||
           d.customerName.toLowerCase().includes(searchText.toLowerCase())) &&
         (!dateRange ||
@@ -302,264 +316,464 @@ export default function Reports() {
     );
   }, [searchText, dateRange]);
 
-  // Filtered All DCLs (Tab C)
   const filteredAllDCLs = useMemo(() => {
     return MOCK_DCLS.filter(
       (d) =>
         (statusFilter === "All" || d.status === statusFilter) &&
         (searchText === "" ||
-          d.customerNo.includes(searchText) ||
+          d.customerNumber.includes(searchText) ||
           d.dclNo.includes(searchText) ||
           d.customerName.toLowerCase().includes(searchText.toLowerCase()) ||
           d.workstep.toLowerCase().includes(searchText.toLowerCase()))
     );
   }, [statusFilter, searchText]);
 
-  // Columns for each table
+  // Timeline render function
+  const renderTimeline = (record) => {
+    const expiryDate = dayjs(record.expiryDate);
+    const now = dayjs();
+    const daysRemaining = expiryDate.diff(now, 'day');
+    const isExpired = daysRemaining < 0;
+    const isExpiringSoon = daysRemaining <= 3 && daysRemaining >= 0;
+
+    let statusColor = SUCCESS_GREEN;
+    let statusIcon = <ClockCircleOutlined />;
+    let statusText = `${daysRemaining}d left`;
+
+    if (isExpired) {
+      statusColor = ERROR_RED;
+      statusIcon = <ExclamationCircleOutlined />;
+      statusText = `Expired`;
+    } else if (isExpiringSoon) {
+      statusColor = WARNING_ORANGE;
+      statusIcon = <WarningOutlined />;
+      statusText = `${daysRemaining}d left`;
+    }
+
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        {React.cloneElement(statusIcon, { style: { color: statusColor, fontSize: 14 } })}
+        <span style={{ color: statusColor, fontWeight: "bold", fontSize: 12 }}>
+          {statusText}
+        </span>
+      </div>
+    );
+  };
+
+  // Priority render function
+  const renderPriority = (priority) => {
+    const priorityConfig = {
+      low: { color: SUCCESS_GREEN, label: "Low" },
+      medium: { color: WARNING_ORANGE, label: "Medium" },
+      high: { color: ERROR_RED, label: "High" },
+      critical: { color: "#8B0000", label: "Critical" }
+    };
+    
+    const config = priorityConfig[priority] || priorityConfig.medium;
+    
+    return (
+      <Tag 
+        color={config.color}
+        style={{ 
+          fontWeight: "bold",
+          border: "none",
+          color: "white",
+          width: "100%",
+          textAlign: "center",
+          fontSize: 11
+        }}
+      >
+        {config.label}
+      </Tag>
+    );
+  };
+
+  // Columns
   const postApprovalColumns = [
     { 
       title: "DCL No", 
       dataIndex: "dclNo", 
-      key: "dclNo",
+      width: 180, 
       render: (text) => (
-        <div style={{ fontWeight: "bold", color: PRIMARY_BLUE }}>
+        <div style={{ fontWeight: "bold", color: PRIMARY_BLUE, display: "flex", alignItems: "center", gap: 8 }}>
+          <FileTextOutlined style={{ color: SECONDARY_PURPLE }} />
           {text}
         </div>
       )
     },
     { 
-      title: "Customer", 
-      key: "customer",
-      render: (_, record) => (
-        <div>
-          <div style={{ fontWeight: 500 }}>{record.customerName}</div>
-          <div style={{ fontSize: 11, color: "#666" }}>{record.customerNo}</div>
+      title: "Customer No", 
+      dataIndex: "customerNumber", 
+      width: 150, 
+      render: (text) => (
+        <div style={{ color: SECONDARY_PURPLE, fontWeight: 500, fontSize: 13 }}>
+          {text}
         </div>
       )
     },
     { 
-      title: "Workstep", 
-      dataIndex: "workstep", 
-      key: "workstep",
-      width: 80
+      title: "Customer Name", 
+      dataIndex: "customerName", 
+      width: 200, 
+      render: (text, record) => (
+        <div>
+          <div style={{ 
+            fontWeight: 600, 
+            color: PRIMARY_BLUE,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            marginBottom: 2
+          }}>
+            <CustomerServiceOutlined style={{ fontSize: 12 }} />
+            {text}
+          </div>
+          <div style={{ fontSize: 11, color: "#666" }}>
+            {record.product}
+          </div>
+        </div>
+      )
     },
     { 
       title: "Document", 
       dataIndex: "document", 
-      key: "document",
-      width: 150
-    },
-    { 
-      title: "Reason", 
-      dataIndex: "reason", 
-      key: "reason",
-      width: 200
-    },
-    {
-      title: "Expiry Date",
-      dataIndex: "expiryDate",
-      key: "expiryDate",
-      width: 110,
-      render: (date) => (
-        <div style={{ fontWeight: "bold", color: PRIMARY_BLUE }}>
-          {date ? dayjs(date).format("DD/MM/YYYY") : "-"}
-        </div>
-      ),
-    },
-    {
-      title: "Creator Comments",
-      dataIndex: "creatorComments",
-      key: "creatorComments",
-      width: 200,
+      width: 200, 
       render: (text) => (
-        <div style={{ fontStyle: "italic", fontSize: 12 }}>
-          {text}
+        <div>
+          <div style={{ fontWeight: 600, marginBottom: 4, color: PRIMARY_BLUE }}>
+            {text}
+          </div>
         </div>
       )
     },
-    {
-      title: "Decision Date",
-      dataIndex: "decisionDate",
-      key: "decisionDate",
-      width: 110,
-      render: (date) => date ? dayjs(date).format("DD/MM/YYYY") : "-",
+    { 
+      title: "RM", 
+      dataIndex: "assignedRM", 
+      width: 120, 
+      render: (rm) => (
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <UserOutlined style={{ color: PRIMARY_BLUE, fontSize: 12 }} />
+          <span style={{ color: PRIMARY_BLUE, fontWeight: 500, fontSize: 13 }}>{rm?.name || "N/A"}</span>
+        </div>
+      )
     },
-    {
-      title: "Status",
-      dataIndex: "status",
-      key: "status",
+    { 
+      title: "Timeline", 
+      key: "timeline",
+      width: 130,
+      render: (_, record) => renderTimeline(record)
+    },
+    { 
+      title: "# Docs", 
+      dataIndex: "documents", 
+      width: 80, 
+      align: "center", 
+      render: (docs) => (
+        <Tag 
+          color={LIGHT_YELLOW} 
+          style={{ 
+            fontSize: 12, 
+            borderRadius: 999, 
+            fontWeight: "bold", 
+            color: PRIMARY_BLUE, 
+            border: `1px solid ${HIGHLIGHT_GOLD}`,
+            minWidth: 32,
+            textAlign: "center"
+          }}
+        >
+          {Array.isArray(docs) ? docs.length : 0}
+        </Tag>
+      ) 
+    },
+    { 
+      title: "Priority", 
+      dataIndex: "priority", 
       width: 100,
+      render: renderPriority
+    },
+    { 
+      title: "Status", 
+      dataIndex: "status", 
+      width: 120, 
       render: (status) => (
         <Tag 
-          color={STATUS_COLOR_MAP[status]} 
-          style={{ fontWeight: "bold" }}
-          icon={status === "Approved" ? <CheckCircleOutlined /> : null}
+          color="success" 
+          style={{ 
+            fontSize: 11, 
+            borderRadius: 999, 
+            fontWeight: "bold", 
+            padding: "2px 8px"
+          }}
+          icon={<CheckCircleOutlined />}
         >
           {status}
         </Tag>
-      ),
-    },
+      )
+    }
   ];
 
   const rejectedDeferralsColumns = [
     { 
       title: "DCL No", 
       dataIndex: "dclNo", 
-      key: "dclNo",
+      width: 180, 
       render: (text) => (
-        <div style={{ fontWeight: "bold", color: PRIMARY_BLUE }}>
+        <div style={{ fontWeight: "bold", color: PRIMARY_BLUE, display: "flex", alignItems: "center", gap: 8 }}>
+          <FileTextOutlined style={{ color: SECONDARY_PURPLE }} />
           {text}
         </div>
       )
     },
     { 
-      title: "Customer", 
-      key: "customer",
-      render: (_, record) => (
-        <div>
-          <div style={{ fontWeight: 500 }}>{record.customerName}</div>
-          <div style={{ fontSize: 11, color: "#666" }}>{record.customerNo}</div>
+      title: "Customer No", 
+      dataIndex: "customerNumber", 
+      width: 150, 
+      render: (text) => (
+        <div style={{ color: SECONDARY_PURPLE, fontWeight: 500, fontSize: 13 }}>
+          {text}
         </div>
       )
     },
     { 
-      title: "Workstep", 
-      dataIndex: "workstep", 
-      key: "workstep",
-      width: 80
+      title: "Customer Name", 
+      dataIndex: "customerName", 
+      width: 200, 
+      render: (text, record) => (
+        <div>
+          <div style={{ 
+            fontWeight: 600, 
+            color: PRIMARY_BLUE,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            marginBottom: 2
+          }}>
+            <CustomerServiceOutlined style={{ fontSize: 12 }} />
+            {text}
+          </div>
+          <div style={{ fontSize: 11, color: "#666" }}>
+            {record.product}
+          </div>
+        </div>
+      )
     },
     { 
       title: "Document", 
       dataIndex: "document", 
-      key: "document",
-      width: 150
-    },
-    { 
-      title: "Reason", 
-      dataIndex: "reason", 
-      key: "reason",
-      width: 200
-    },
-    {
-      title: "Expiry Date",
-      dataIndex: "expiryDate",
-      key: "expiryDate",
-      width: 110,
-      render: (date) => (
-        <div style={{ fontWeight: "bold", color: ERROR_RED }}>
-          {date ? dayjs(date).format("DD/MM/YYYY") : "-"}
-        </div>
-      ),
-    },
-    {
-      title: "Rejection Reason",
-      dataIndex: "creatorComments",
-      key: "creatorComments",
-      width: 200,
+      width: 200, 
       render: (text) => (
-        <div style={{ fontStyle: "italic", fontSize: 12, color: ERROR_RED }}>
-          {text}
+        <div>
+          <div style={{ fontWeight: 600, marginBottom: 4, color: PRIMARY_BLUE }}>
+            {text}
+          </div>
         </div>
       )
     },
-    {
-      title: "Decision Date",
-      dataIndex: "decisionDate",
-      key: "decisionDate",
-      width: 110,
-      render: (date) => date ? dayjs(date).format("DD/MM/YYYY") : "-",
+    { 
+      title: "RM", 
+      dataIndex: "assignedRM", 
+      width: 120, 
+      render: (rm) => (
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <UserOutlined style={{ color: PRIMARY_BLUE, fontSize: 12 }} />
+          <span style={{ color: PRIMARY_BLUE, fontWeight: 500, fontSize: 13 }}>{rm?.name || "N/A"}</span>
+        </div>
+      )
     },
-    {
-      title: "Status",
-      dataIndex: "status",
-      key: "status",
+    { 
+      title: "Timeline", 
+      key: "timeline",
+      width: 130,
+      render: (_, record) => renderTimeline(record)
+    },
+    { 
+      title: "# Docs", 
+      dataIndex: "documents", 
+      width: 80, 
+      align: "center", 
+      render: (docs) => (
+        <Tag 
+          color={LIGHT_YELLOW} 
+          style={{ 
+            fontSize: 12, 
+            borderRadius: 999, 
+            fontWeight: "bold", 
+            color: PRIMARY_BLUE, 
+            border: `1px solid ${HIGHLIGHT_GOLD}`,
+            minWidth: 32,
+            textAlign: "center"
+          }}
+        >
+          {Array.isArray(docs) ? docs.length : 0}
+        </Tag>
+      ) 
+    },
+    { 
+      title: "Priority", 
+      dataIndex: "priority", 
       width: 100,
+      render: renderPriority
+    },
+    { 
+      title: "Status", 
+      dataIndex: "status", 
+      width: 120, 
       render: (status) => (
         <Tag 
-          color={STATUS_COLOR_MAP[status]} 
-          style={{ fontWeight: "bold" }}
+          color="error" 
+          style={{ 
+            fontSize: 11, 
+            borderRadius: 999, 
+            fontWeight: "bold", 
+            padding: "2px 8px"
+          }}
           icon={<CloseCircleOutlined />}
         >
           {status}
         </Tag>
-      ),
-    },
+      )
+    }
   ];
 
   const allDCLColumns = [
     { 
       title: "DCL No", 
       dataIndex: "dclNo", 
-      key: "dclNo",
+      width: 180, 
       render: (text) => (
-        <div style={{ fontWeight: "bold", color: PRIMARY_BLUE }}>
+        <div style={{ fontWeight: "bold", color: PRIMARY_BLUE, display: "flex", alignItems: "center", gap: 8 }}>
+          <FileTextOutlined style={{ color: SECONDARY_PURPLE }} />
           {text}
         </div>
       )
     },
     { 
-      title: "Customer", 
-      key: "customer",
-      render: (_, record) => (
+      title: "Customer No", 
+      dataIndex: "customerNumber", 
+      width: 150, 
+      render: (text) => (
+        <div style={{ color: SECONDARY_PURPLE, fontWeight: 500, fontSize: 13 }}>
+          {text}
+        </div>
+      )
+    },
+    { 
+      title: "Customer Name", 
+      dataIndex: "customerName", 
+      width: 200, 
+      render: (text, record) => (
         <div>
-          <div style={{ fontWeight: 500 }}>{record.customerName}</div>
-          <div style={{ fontSize: 11, color: "#666" }}>{record.customerNo}</div>
+          <div style={{ 
+            fontWeight: 600, 
+            color: PRIMARY_BLUE,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            marginBottom: 2
+          }}>
+            <CustomerServiceOutlined style={{ fontSize: 12 }} />
+            {text}
+          </div>
+          <div style={{ fontSize: 11, color: "#666" }}>
+            {record.product}
+          </div>
         </div>
       )
     },
     { 
-      title: "Workstep", 
-      dataIndex: "workstep", 
-      key: "workstep",
-      width: 80
-    },
-    { 
-      title: "Product", 
-      dataIndex: "product", 
-      key: "product",
-      width: 120
-    },
-    { 
-      title: "Loan Amount", 
-      dataIndex: "loanAmount", 
-      key: "loanAmount",
-      width: 120,
+      title: "Document", 
+      dataIndex: "documentName", 
+      width: 200, 
       render: (text) => (
-        <div style={{ fontWeight: "bold", color: PRIMARY_BLUE }}>
-          {text}
+        <div>
+          <div style={{ fontWeight: 600, color: PRIMARY_BLUE }}>
+            {text}
+          </div>
         </div>
       )
     },
-    {
-      title: "Status",
-      dataIndex: "status",
-      key: "status",
-      render: (status) => (
+    { 
+      title: "RM", 
+      dataIndex: "assignedRM", 
+      width: 120, 
+      render: (rm) => (
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <UserOutlined style={{ color: PRIMARY_BLUE, fontSize: 12 }} />
+          <span style={{ color: PRIMARY_BLUE, fontWeight: 500, fontSize: 13 }}>{rm?.name || "N/A"}</span>
+        </div>
+      )
+    },
+    { 
+      title: "Timeline", 
+      key: "timeline",
+      width: 130,
+      render: (_, record) => renderTimeline(record)
+    },
+    { 
+      title: "# Docs", 
+      dataIndex: "documents", 
+      width: 80, 
+      align: "center", 
+      render: (docs) => (
         <Tag 
-          color={DCL_STATUS_COLOR_MAP[status] || "default"}
-          style={{ fontWeight: "bold" }}
+          color={LIGHT_YELLOW} 
+          style={{ 
+            fontSize: 12, 
+            borderRadius: 999, 
+            fontWeight: "bold", 
+            color: PRIMARY_BLUE, 
+            border: `1px solid ${HIGHLIGHT_GOLD}`,
+            minWidth: 32,
+            textAlign: "center"
+          }}
         >
-          {status}
+          {Array.isArray(docs) ? docs.length : 0}
         </Tag>
-      ),
+      ) 
     },
-    {
-      title: "Completed Date",
-      dataIndex: "completedDate",
-      key: "completedDate",
-      render: (date) => date ? dayjs(date).format("DD/MM/YYYY") : "-",
-    },
-    {
-      title: "Deferral Status",
-      dataIndex: "deferralStatus",
-      key: "deferralStatus",
+    { 
+      title: "Status", 
+      dataIndex: "status", 
+      width: 120, 
       render: (status) => {
-        if (status === "None") return <Tag>No Deferral</Tag>;
-        if (status === "Approved") return <Tag color="green">Deferral Approved</Tag>;
-        if (status === "Rejected") return <Tag color="red">Deferral Rejected</Tag>;
-        return <Tag>{status}</Tag>;
+        const statusColor = status === "Completed" ? SUCCESS_GREEN :
+                           status === "Active" ? INFO_BLUE :
+                           status === "Deferred" ? WARNING_ORANGE : "default";
+        
+        return (
+          <Tag 
+            color={statusColor}
+            style={{ 
+              fontSize: 11, 
+              borderRadius: 999, 
+              fontWeight: "bold", 
+              padding: "2px 8px"
+            }}
+          >
+            {status}
+          </Tag>
+        );
       }
     },
+    { 
+      title: "Deferral Status", 
+      dataIndex: "deferralStatus", 
+      width: 140, 
+      render: (status) => {
+        if (status === "None") return <Tag>No Deferral</Tag>;
+        if (status === "Approved") return (
+          <Tag color="green" style={{ fontWeight: "bold" }}>
+            Deferral Approved
+          </Tag>
+        );
+        if (status === "Rejected") return (
+          <Tag color="red" style={{ fontWeight: "bold" }}>
+            Deferral Rejected
+          </Tag>
+        );
+        return <Tag>{status}</Tag>;
+      }
+    }
   ];
 
   // Export functionality
@@ -578,7 +792,6 @@ export default function Reports() {
       filename = `all_dcls_${dayjs().format('YYYYMMDD_HHmmss')}.csv`;
     }
     
-    // Create CSV content
     const csvContent = "data:text/csv;charset=utf-8," + 
       data.map(row => Object.values(row).join(",")).join("\n");
     
@@ -590,6 +803,72 @@ export default function Reports() {
     link.click();
     document.body.removeChild(link);
   };
+
+  // Render filters component
+  const renderFilters = () => (
+    <Card 
+      style={{ 
+        marginBottom: 16,
+        background: "#fafafa",
+        border: `1px solid rgba(22, 70, 121, 0.1)`
+      }}
+      size="small"
+    >
+      <Row gutter={[16, 16]} align="middle">
+        <Col xs={24} sm={12} md={8}>
+          <Input
+            placeholder="Search by DCL No, Customer No, or Name"
+            prefix={<SearchOutlined />}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            allowClear
+          />
+        </Col>
+        
+        {activeTab !== "allDCLs" && (
+          <Col xs={24} sm={12} md={8}>
+            <RangePicker
+              style={{ width: '100%' }}
+              placeholder={['Start Date', 'End Date']}
+              value={dateRange}
+              onChange={(dates) => setDateRange(dates)}
+              format="DD/MM/YYYY"
+            />
+          </Col>
+        )}
+        
+        {activeTab === "allDCLs" && (
+          <Col xs={24} sm={12} md={8}>
+            <Select
+              style={{ width: '100%' }}
+              placeholder="Filter by Status"
+              value={statusFilter}
+              onChange={(value) => setStatusFilter(value)}
+              allowClear
+            >
+              <Option value="All">All Statuses</Option>
+              <Option value="Completed">Completed</Option>
+              <Option value="Active">Active</Option>
+              <Option value="Deferred">Deferred</Option>
+            </Select>
+          </Col>
+        )}
+        
+        <Col xs={24} sm={12} md={activeTab === "allDCLs" ? 8 : 4}>
+          <Button 
+            onClick={() => {
+              setSearchText("");
+              setDateRange(null);
+              setStatusFilter("All");
+            }}
+            style={{ width: '100%' }}
+          >
+            Clear Filters
+          </Button>
+        </Col>
+      </Row>
+    </Card>
+  );
 
   return (
     <div style={{ padding: 24 }}>
@@ -633,42 +912,42 @@ export default function Reports() {
       {/* Statistics Cards */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col xs={24} sm={12} md={6}>
-          <Card size="small">
+          <Card>
             <Statistic
               title="Total DCLs"
               value={stats.totalDCLs}
               prefix={<FileTextOutlined style={{ color: PRIMARY_BLUE }} />}
-              valueStyle={{ color: PRIMARY_BLUE, fontSize: 28 }}
+              valueStyle={{ color: PRIMARY_BLUE }}
             />
           </Card>
         </Col>
         <Col xs={24} sm={12} md={6}>
-          <Card size="small">
+          <Card>
             <Statistic
               title="Post-approval Deferrals"
               value={stats.totalApprovedDeferrals}
               prefix={<CheckCircleOutlined style={{ color: SUCCESS_GREEN }} />}
-              valueStyle={{ color: SUCCESS_GREEN, fontSize: 28 }}
+              valueStyle={{ color: SUCCESS_GREEN }}
             />
           </Card>
         </Col>
         <Col xs={24} sm={12} md={6}>
-          <Card size="small">
+          <Card>
             <Statistic
               title="Rejected Deferrals"
               value={stats.totalRejectedDeferrals}
               prefix={<CloseCircleOutlined style={{ color: ERROR_RED }} />}
-              valueStyle={{ color: ERROR_RED, fontSize: 28 }}
+              valueStyle={{ color: ERROR_RED }}
             />
           </Card>
         </Col>
         <Col xs={24} sm={12} md={6}>
-          <Card size="small">
+          <Card>
             <Statistic
               title="Active DCLs"
               value={stats.totalActiveDCLs}
               prefix={<FileTextOutlined style={{ color: INFO_BLUE }} />}
-              valueStyle={{ color: INFO_BLUE, fontSize: 28 }}
+              valueStyle={{ color: INFO_BLUE }}
             />
           </Card>
         </Col>
@@ -686,7 +965,7 @@ export default function Reports() {
           }}
           type="card"
         >
-          {/* Post-approval Deferrals (Approved by creator) */}
+          {/* Post-approval Deferrals */}
           <TabPane 
             tab={
               <span>
@@ -696,46 +975,41 @@ export default function Reports() {
             } 
             key="postApproval"
           >
-            <Space style={{ marginBottom: 16 }}>
-              <Search
-                placeholder="Search by DCL No, Customer No, or Name"
-                prefix={<SearchOutlined />}
-                onChange={(e) => setSearchText(e.target.value)}
-                allowClear
-                style={{ width: 300 }}
-              />
-              <RangePicker
-                onChange={(dates) => setDateRange(dates)}
-                allowEmpty={[true, true]}
-                placeholder={['Start Date', 'End Date']}
-                format="DD/MM/YYYY"
-              />
-            </Space>
+            {/* Table Title */}
+            <Divider style={{ margin: "12px 0" }}>
+              <span style={{ color: PRIMARY_BLUE, fontSize: 16, fontWeight: 600 }}>
+                Post-approval Deferrals ({filteredPostApprovalDeferrals.length} items)
+              </span>
+            </Divider>
 
-            <Table
+            {/* Filters */}
+            {renderFilters()}
+
+            {/* Table */}
+            <Table 
               columns={postApprovalColumns}
               dataSource={filteredPostApprovalDeferrals}
               rowKey="id"
-              pagination={{ pageSize: 10 }}
+              size="large" 
+              pagination={{ 
+                pageSize: 10, 
+                showSizeChanger: true, 
+                pageSizeOptions: ["10", "20", "50"], 
+                position: ["bottomCenter"],
+                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} deferrals`
+              }} 
+              rowClassName={(record, index) => (index % 2 === 0 ? "bg-white" : "bg-gray-50")}
               scroll={{ x: 1300 }}
-              summary={() => (
-                <Table.Summary>
-                  <Table.Summary.Row>
-                    <Table.Summary.Cell index={0} colSpan={3}>
-                      <strong>Total Approved Deferrals:</strong>
-                    </Table.Summary.Cell>
-                    <Table.Summary.Cell index={1} colSpan={6}>
-                      <strong style={{ color: SUCCESS_GREEN }}>
-                        {filteredPostApprovalDeferrals.length} records
-                      </strong>
-                    </Table.Summary.Cell>
-                  </Table.Summary.Row>
-                </Table.Summary>
-              )}
+              style={{
+                borderRadius: 12,
+                boxShadow: "0 10px 30px rgba(22, 70, 121, 0.08)",
+                border: "1px solid #e0e0e0",
+                overflow: "hidden"
+              }}
             />
           </TabPane>
 
-          {/* Rejected Deferrals (Rejected by creator) */}
+          {/* Rejected Deferrals */}
           <TabPane 
             tab={
               <span>
@@ -745,42 +1019,37 @@ export default function Reports() {
             } 
             key="rejected"
           >
-            <Space style={{ marginBottom: 16 }}>
-              <Search
-                placeholder="Search by DCL No, Customer No, or Name"
-                prefix={<SearchOutlined />}
-                onChange={(e) => setSearchText(e.target.value)}
-                allowClear
-                style={{ width: 300 }}
-              />
-              <RangePicker
-                onChange={(dates) => setDateRange(dates)}
-                allowEmpty={[true, true]}
-                placeholder={['Start Date', 'End Date']}
-                format="DD/MM/YYYY"
-              />
-            </Space>
+            {/* Table Title */}
+            <Divider style={{ margin: "12px 0" }}>
+              <span style={{ color: PRIMARY_BLUE, fontSize: 16, fontWeight: 600 }}>
+                Rejected Deferrals ({filteredRejectedDeferrals.length} items)
+              </span>
+            </Divider>
 
-            <Table
+            {/* Filters */}
+            {renderFilters()}
+
+            {/* Table */}
+            <Table 
               columns={rejectedDeferralsColumns}
               dataSource={filteredRejectedDeferrals}
               rowKey="id"
-              pagination={{ pageSize: 10 }}
+              size="large" 
+              pagination={{ 
+                pageSize: 10, 
+                showSizeChanger: true, 
+                pageSizeOptions: ["10", "20", "50"], 
+                position: ["bottomCenter"],
+                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} deferrals`
+              }} 
+              rowClassName={(record, index) => (index % 2 === 0 ? "bg-white" : "bg-gray-50")}
               scroll={{ x: 1300 }}
-              summary={() => (
-                <Table.Summary>
-                  <Table.Summary.Row>
-                    <Table.Summary.Cell index={0} colSpan={3}>
-                      <strong>Total Rejected Deferrals:</strong>
-                    </Table.Summary.Cell>
-                    <Table.Summary.Cell index={1} colSpan={6}>
-                      <strong style={{ color: ERROR_RED }}>
-                        {filteredRejectedDeferrals.length} records
-                      </strong>
-                    </Table.Summary.Cell>
-                  </Table.Summary.Row>
-                </Table.Summary>
-              )}
+              style={{
+                borderRadius: 12,
+                boxShadow: "0 10px 30px rgba(22, 70, 121, 0.08)",
+                border: "1px solid #e0e0e0",
+                overflow: "hidden"
+              }}
             />
           </TabPane>
 
@@ -794,47 +1063,37 @@ export default function Reports() {
             } 
             key="allDCLs"
           >
-            <Space style={{ marginBottom: 16 }}>
-              <Search
-                placeholder="Search by DCL No, Customer No, or Name"
-                prefix={<SearchOutlined />}
-                onChange={(e) => setSearchText(e.target.value)}
-                allowClear
-                style={{ width: 300 }}
-              />
-              <Select
-                value={statusFilter}
-                onChange={(val) => setStatusFilter(val)}
-                style={{ width: 200 }}
-                placeholder="Filter by Status"
-              >
-                <Select.Option value="All">All Statuses</Select.Option>
-                <Select.Option value="Completed">Completed</Select.Option>
-                <Select.Option value="Active">Active</Select.Option>
-                <Select.Option value="Deferred">Deferred</Select.Option>
-              </Select>
-            </Space>
+            {/* Table Title */}
+            <Divider style={{ margin: "12px 0" }}>
+              <span style={{ color: PRIMARY_BLUE, fontSize: 16, fontWeight: 600 }}>
+                All DCLs ({filteredAllDCLs.length} items)
+              </span>
+            </Divider>
 
-            <Table
+            {/* Filters */}
+            {renderFilters()}
+
+            {/* Table */}
+            <Table 
               columns={allDCLColumns}
               dataSource={filteredAllDCLs}
               rowKey="id"
-              pagination={{ pageSize: 10 }}
-              scroll={{ x: 1200 }}
-              summary={() => (
-                <Table.Summary>
-                  <Table.Summary.Row>
-                    <Table.Summary.Cell index={0} colSpan={4}>
-                      <strong>Total DCLs:</strong>
-                    </Table.Summary.Cell>
-                    <Table.Summary.Cell index={1} colSpan={4}>
-                      <strong style={{ color: PRIMARY_BLUE }}>
-                        {filteredAllDCLs.length} records
-                      </strong>
-                    </Table.Summary.Cell>
-                  </Table.Summary.Row>
-                </Table.Summary>
-              )}
+              size="large" 
+              pagination={{ 
+                pageSize: 10, 
+                showSizeChanger: true, 
+                pageSizeOptions: ["10", "20", "50"], 
+                position: ["bottomCenter"],
+                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} DCLs`
+              }} 
+              rowClassName={(record, index) => (index % 2 === 0 ? "bg-white" : "bg-gray-50")}
+              scroll={{ x: 1400 }}
+              style={{
+                borderRadius: 12,
+                boxShadow: "0 10px 30px rgba(22, 70, 121, 0.08)",
+                border: "1px solid #e0e0e0",
+                overflow: "hidden"
+              }}
             />
           </TabPane>
         </Tabs>
