@@ -17,7 +17,8 @@ import {
   Tooltip,
   Space,
   Modal,
-  message
+  message,
+  Input as AntInput
 } from "antd";
 import { 
   EyeOutlined, 
@@ -52,13 +53,13 @@ const WARNING_ORANGE = "#faad14";
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
+const { TextArea } = AntInput;
 
 const Deferrals = ({ userId }) => {
   // State Management
   const [selectedDeferral, setSelectedDeferral] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [filters, setFilters] = useState({
-    status: 'all',
     priority: 'all',
     search: '',
     dateRange: null
@@ -66,12 +67,14 @@ const Deferrals = ({ userId }) => {
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState({
     total: 0,
-    pending: 0,
-    approved: 0,
-    rejected: 0,
     expiringSoon: 0,
     expired: 0
   });
+  
+  // Action states
+  const [actionLoading, setActionLoading] = useState(false);
+  const [approveComment, setApproveComment] = useState("");
+  const [rejectReason, setRejectReason] = useState("");
 
   // Mock API integration - replace with actual API call
   const mockDeferralsData = [
@@ -152,64 +155,6 @@ const Deferrals = ({ userId }) => {
         { name: "Title Deed", status: "uploaded" },
         { name: "Valuation Report", status: "pending" }
       ]
-    },
-    {
-      _id: "4",
-      dclNo: "DCL-2024-004",
-      customerNumber: "CUST004",
-      documentName: "Company Memorandum & Articles",
-      deferralReason: "With lawyer for updates",
-      rmComments: "Legal review in progress",
-      expiryDate: "2024-12-25T00:00:00.000Z",
-      requestedDate: "2024-01-12T11:45:00.000Z",
-      status: "approved",
-      loanType: "Corporate Loan",
-      loanAmount: "KES 25,000,000",
-      assignedRM: { 
-        name: "Sarah Williams", 
-        id: "RM004",
-        email: "sarah.w@ncbabank.com"
-      },
-      priority: "medium",
-      slaStatus: "normal",
-      daysRemaining: 20,
-      createdAt: "2024-01-12T11:45:00.000Z",
-      approvedBy: "Creator User",
-      approvedDate: "2024-01-12T14:30:00.000Z",
-      approvalComments: "Approved with conditions",
-      documents: [
-        { name: "Financials", status: "uploaded" },
-        { name: "Business Plan", status: "uploaded" }
-      ]
-    },
-    {
-      _id: "5",
-      dclNo: "DCL-2024-005",
-      customerNumber: "CUST005",
-      documentName: "Financial Projections",
-      deferralReason: "Awaiting auditor's report",
-      rmComments: "Audit completion expected EOW",
-      expiryDate: "2024-12-10T00:00:00.000Z",
-      requestedDate: "2024-01-11T16:20:00.000Z",
-      status: "rejected",
-      loanType: "Expansion Loan",
-      loanAmount: "KES 10,000,000",
-      assignedRM: { 
-        name: "Michael Brown", 
-        id: "RM005",
-        email: "michael.b@ncbabank.com"
-      },
-      priority: "low",
-      slaStatus: "normal",
-      daysRemaining: null,
-      createdAt: "2024-01-11T16:20:00.000Z",
-      rejectedBy: "Creator User",
-      rejectedDate: "2024-01-12T10:15:00.000Z",
-      rejectionReason: "Insufficient justification",
-      documents: [
-        { name: "Project Report", status: "pending" },
-        { name: "Market Analysis", status: "pending" }
-      ]
     }
   ];
 
@@ -220,7 +165,7 @@ const Deferrals = ({ userId }) => {
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 800));
       // In real implementation, replace with:
-      // const response = await useGetChecklistsQuery(); // or specific deferrals API
+      // const response = await useGetDeferralsQuery(); // or specific deferrals API
       return mockDeferralsData;
     } catch (error) {
       console.error("Error fetching deferrals:", error);
@@ -241,34 +186,29 @@ const Deferrals = ({ userId }) => {
 
   const loadDeferrals = async () => {
     const data = await fetchDeferrals();
-    setDeferrals(data);
-    setFilteredDeferrals(data);
-    calculateStats(data);
+    // Filter to show only deferrals pending creator review
+    const pendingReviewData = data.filter(d => d.status === "deferral_pending_creator_review");
+    setDeferrals(pendingReviewData);
+    setFilteredDeferrals(pendingReviewData);
+    calculateStats(pendingReviewData);
   };
 
-  // Calculate statistics
+  // Calculate statistics for pending deferrals only
   const calculateStats = (data) => {
     const now = dayjs();
-    const pending = data.filter(d => d.status === "deferral_pending_creator_review");
-    const approved = data.filter(d => d.status === "approved");
-    const rejected = data.filter(d => d.status === "rejected");
-    
-    const expiringSoon = pending.filter(d => {
+    const expiringSoon = data.filter(d => {
       if (!d.expiryDate) return false;
       const expiry = dayjs(d.expiryDate);
       return expiry.diff(now, 'day') <= 3 && expiry.diff(now, 'day') >= 0;
     });
     
-    const expired = pending.filter(d => {
+    const expired = data.filter(d => {
       if (!d.expiryDate) return false;
       return dayjs(d.expiryDate).isBefore(now);
     });
 
     setStats({
       total: data.length,
-      pending: pending.length,
-      approved: approved.length,
-      rejected: rejected.length,
       expiringSoon: expiringSoon.length,
       expired: expired.length
     });
@@ -281,11 +221,6 @@ const Deferrals = ({ userId }) => {
 
   const applyFilters = () => {
     let filtered = [...deferrals];
-
-    // Apply status filter
-    if (filters.status !== 'all') {
-      filtered = filtered.filter(d => d.status === filters.status);
-    }
 
     // Apply priority filter
     if (filters.priority !== 'all') {
@@ -317,51 +252,84 @@ const Deferrals = ({ userId }) => {
   };
 
   // Handle deferral actions
-  const handleDeferralAction = async (deferralId, action, comments) => {
+  const handleApproveDeferral = async () => {
+    if (!approveComment.trim()) {
+      message.error("Please enter approval comments");
+      return;
+    }
+
+    setActionLoading(true);
     try {
-      setLoading(true);
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 600));
       
-      // Update local state
-      const updatedDeferrals = deferrals.map(d => {
-        if (d._id === deferralId) {
-          return {
-            ...d,
-            status: action === "approve" ? "approved" : "rejected",
-            [action === "approve" ? 'approvedBy' : 'rejectedBy']: `User ${userId}`,
-            [action === "approve" ? 'approvalComments' : 'rejectionReason']: comments,
-            [action === "approve" ? 'approvedDate' : 'rejectedDate']: new Date().toISOString()
-          };
-        }
-        return d;
-      });
+      // Update local state - remove approved deferral from list
+      const updatedDeferrals = deferrals.filter(d => d._id !== selectedDeferral._id);
       
       setDeferrals(updatedDeferrals);
-      message.success(`Deferral ${action === "approve" ? "approved" : "rejected"} successfully!`);
+      message.success("Deferral approved successfully!");
+      
+      // Close modal and reset
       setModalVisible(false);
       setSelectedDeferral(null);
+      setApproveComment("");
+      
+      // Refresh stats
+      calculateStats(updatedDeferrals);
       
     } catch (error) {
-      console.error("Error processing deferral:", error);
-      message.error("Failed to process deferral");
+      console.error("Error approving deferral:", error);
+      message.error("Failed to approve deferral");
     } finally {
-      setLoading(false);
+      setActionLoading(false);
+    }
+  };
+
+  const handleRejectDeferral = async () => {
+    if (!rejectReason.trim()) {
+      message.error("Please enter rejection reason");
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 600));
+      
+      // Update local state - remove rejected deferral from list
+      const updatedDeferrals = deferrals.filter(d => d._id !== selectedDeferral._id);
+      
+      setDeferrals(updatedDeferrals);
+      message.success("Deferral rejected successfully!");
+      
+      // Close modal and reset
+      setModalVisible(false);
+      setSelectedDeferral(null);
+      setRejectReason("");
+      
+      // Refresh stats
+      calculateStats(updatedDeferrals);
+      
+    } catch (error) {
+      console.error("Error rejecting deferral:", error);
+      message.error("Failed to reject deferral");
+    } finally {
+      setActionLoading(false);
     }
   };
 
   // Export functionality
   const exportDeferrals = () => {
     const csvContent = "data:text/csv;charset=utf-8," + 
-      "Customer No,DCL No,Document,Loan Type,Status,Expiry Date,RM,Priority\n" +
+      "Customer No,DCL No,Document,Loan Type,Expiry Date,RM,Priority,Days Remaining\n" +
       filteredDeferrals.map(d => 
-        `${d.customerNumber},${d.dclNo},"${d.documentName}",${d.loanType},${d.status},${dayjs(d.expiryDate).format('DD/MM/YYYY')},${d.assignedRM.name},${d.priority}`
+        `${d.customerNumber},${d.dclNo},"${d.documentName}",${d.loanType},${dayjs(d.expiryDate).format('DD/MM/YYYY')},${d.assignedRM.name},${d.priority},${d.daysRemaining}`
       ).join("\n");
     
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `deferrals_export_${dayjs().format('YYYYMMDD_HHmmss')}.csv`);
+    link.setAttribute("download", `pending_deferrals_${dayjs().format('YYYYMMDD_HHmmss')}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -418,7 +386,7 @@ const Deferrals = ({ userId }) => {
       color: ${ACCENT_LIME} !important; 
     }
     .deferrals-table .ant-pagination .ant-pagination-options .ant-select-selector { 
-      border-radius: 8px !important; 
+      borderRadius: 8px !important; 
     }
   `;
 
@@ -569,45 +537,19 @@ const Deferrals = ({ userId }) => {
       title: "Status", 
       dataIndex: "status", 
       width: 120, 
-      render: (status) => {
-        let tagColor, tagText, bgColor;
-        if (status === "approved") { 
-          tagText = "Approved"; 
-          tagColor = SUCCESS_GREEN; 
-          bgColor = SUCCESS_GREEN; 
-        }
-        else if (status === "rejected") { 
-          tagText = "Rejected"; 
-          tagColor = ERROR_RED; 
-          bgColor = ERROR_RED; 
-        }
-        else if (status === "deferral_pending_creator_review") { 
-          tagText = "Pending"; 
-          tagColor = WARNING_ORANGE; 
-          bgColor = WARNING_ORANGE; 
-        }
-        else { 
-          tagText = "Unknown"; 
-          tagColor = SECONDARY_PURPLE; 
-          bgColor = LIGHT_YELLOW; 
-        }
-        return (
-          <Tag 
-            color={tagColor} 
-            style={{ 
-              fontSize: 11, 
-              borderRadius: 999, 
-              fontWeight: "bold", 
-              padding: "2px 8px", 
-              color: "white", 
-              backgroundColor: bgColor, 
-              borderColor: bgColor 
-            }}
-          >
-            {tagText}
-          </Tag>
-        );
-      }
+      render: (status) => (
+        <Tag 
+          color="processing" 
+          style={{ 
+            fontSize: 11, 
+            borderRadius: 999, 
+            fontWeight: "bold", 
+            padding: "2px 8px"
+          }}
+        >
+          Pending Review
+        </Tag>
+      )
     },
     { 
       title: "Actions", 
@@ -617,26 +559,28 @@ const Deferrals = ({ userId }) => {
           <Tooltip title="Review Deferral">
             <Button 
               size="small" 
-              type="link" 
+              type="primary"
               onClick={() => {
                 setSelectedDeferral(record);
                 setModalVisible(true);
               }}
               style={{ 
-                color: SECONDARY_PURPLE, 
+                backgroundColor: ACCENT_LIME,
+                borderColor: ACCENT_LIME,
                 fontWeight: "bold", 
-                fontSize: 13, 
+                fontSize: 12, 
                 borderRadius: 6,
               }}
-              icon={<EyeOutlined />}
-            />
+            >
+              Review
+            </Button>
           </Tooltip>
         </Space>
       ) 
     }
   ];
 
-  // Filter component
+  // Filter component (simplified - no status filter since all are pending)
   const renderFilters = () => (
     <Card 
       style={{ 
@@ -647,7 +591,7 @@ const Deferrals = ({ userId }) => {
       size="small"
     >
       <Row gutter={[16, 16]} align="middle">
-        <Col xs={24} sm={12} md={6}>
+        <Col xs={24} sm={12} md={8}>
           <Input
             placeholder="Search customer, DCL, document..."
             prefix={<SearchOutlined />}
@@ -657,22 +601,7 @@ const Deferrals = ({ userId }) => {
           />
         </Col>
         
-        <Col xs={24} sm={12} md={5}>
-          <Select
-            style={{ width: '100%' }}
-            placeholder="Status"
-            value={filters.status}
-            onChange={(value) => setFilters({...filters, status: value})}
-            allowClear
-          >
-            <Option value="all">All Statuses</Option>
-            <Option value="deferral_pending_creator_review">Pending</Option>
-            <Option value="approved">Approved</Option>
-            <Option value="rejected">Rejected</Option>
-          </Select>
-        </Col>
-        
-        <Col xs={24} sm={12} md={5}>
+        <Col xs={24} sm={12} md={6}>
           <Select
             style={{ width: '100%' }}
             placeholder="Priority"
@@ -688,7 +617,7 @@ const Deferrals = ({ userId }) => {
           </Select>
         </Col>
         
-        <Col xs={24} sm={12} md={6}>
+        <Col xs={24} sm={12} md={8}>
           <RangePicker
             style={{ width: '100%' }}
             placeholder={['Start Date', 'End Date']}
@@ -701,7 +630,6 @@ const Deferrals = ({ userId }) => {
         <Col xs={24} sm={12} md={2}>
           <Button 
             onClick={() => setFilters({
-              status: 'all',
               priority: 'all',
               search: '',
               dateRange: null
@@ -715,66 +643,21 @@ const Deferrals = ({ userId }) => {
     </Card>
   );
 
-  // Stats row
+  // Stats row (simplified for pending only)
   const renderStats = () => (
     <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-      <Col xs={24} sm={12} md={4}>
+      <Col xs={24} sm={12} md={6}>
         <Card size="small" hoverable>
           <Statistic 
-            title="Total Deferrals" 
+            title="Pending Deferrals" 
             value={stats.total} 
-            prefix={<FileTextOutlined />}
+            prefix={<ClockCircleOutlined />}
             valueStyle={{ color: PRIMARY_BLUE }}
           />
         </Card>
       </Col>
       
-      <Col xs={24} sm={12} md={4}>
-        <Card 
-          size="small" 
-          hoverable 
-          style={{ borderColor: WARNING_ORANGE }}
-        >
-          <Statistic 
-            title="Pending Review" 
-            value={stats.pending} 
-            prefix={<ClockCircleOutlined />}
-            valueStyle={{ color: WARNING_ORANGE }}
-          />
-        </Card>
-      </Col>
-      
-      <Col xs={24} sm={12} md={4}>
-        <Card 
-          size="small" 
-          hoverable 
-          style={{ borderColor: SUCCESS_GREEN }}
-        >
-          <Statistic 
-            title="Approved" 
-            value={stats.approved} 
-            prefix={<CheckCircleOutlined />}
-            valueStyle={{ color: SUCCESS_GREEN }}
-          />
-        </Card>
-      </Col>
-      
-      <Col xs={24} sm={12} md={4}>
-        <Card 
-          size="small" 
-          hoverable 
-          style={{ borderColor: ERROR_RED }}
-        >
-          <Statistic 
-            title="Rejected" 
-            value={stats.rejected} 
-            prefix={<CloseCircleOutlined />}
-            valueStyle={{ color: ERROR_RED }}
-          />
-        </Card>
-      </Col>
-      
-      <Col xs={24} sm={12} md={4}>
+      <Col xs={24} sm={12} md={6}>
         <Card 
           size="small" 
           hoverable 
@@ -789,7 +672,7 @@ const Deferrals = ({ userId }) => {
         </Card>
       </Col>
       
-      <Col xs={24} sm={12} md={4}>
+      <Col xs={24} sm={12} md={6}>
         <Card 
           size="small" 
           hoverable 
@@ -800,6 +683,21 @@ const Deferrals = ({ userId }) => {
             value={stats.expired} 
             prefix={<WarningOutlined />}
             valueStyle={{ color: ERROR_RED }}
+          />
+        </Card>
+      </Col>
+      
+      <Col xs={24} sm={12} md={6}>
+        <Card 
+          size="small" 
+          hoverable 
+          style={{ borderColor: ACCENT_LIME }}
+        >
+          <Statistic 
+            title="Action Required" 
+            value={stats.total} 
+            prefix={<ExclamationCircleOutlined />}
+            valueStyle={{ color: ACCENT_LIME }}
           />
         </Card>
       </Col>
@@ -816,24 +714,24 @@ const Deferrals = ({ userId }) => {
           marginBottom: 24,
           borderRadius: 8,
           boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-          borderLeft: `4px solid ${PRIMARY_BLUE}`
+          borderLeft: `4px solid ${ACCENT_LIME}`
         }}
         bodyStyle={{ padding: 16 }}
       >
         <Row justify="space-between" align="middle">
           <Col>
             <h2 style={{ margin: 0, color: PRIMARY_BLUE, display: "flex", alignItems: "center", gap: 12 }}>
-              Deferral Management
+              Pending Deferral Review
               <Badge 
-                count={stats.pending} 
+                count={stats.total} 
                 style={{ 
-                  backgroundColor: WARNING_ORANGE,
+                  backgroundColor: ACCENT_LIME,
                   fontSize: 12
                 }}
               />
             </h2>
             <p style={{ margin: "4px 0 0", color: "#666", fontSize: 14 }}>
-              Review and manage deferral requests from Relationship Managers
+              Review and approve/reject deferral requests from Relationship Managers
             </p>
           </Col>
           
@@ -847,7 +745,7 @@ const Deferrals = ({ userId }) => {
                 />
               </Tooltip>
               
-              <Tooltip title="Export">
+              <Tooltip title="Export Pending Deferrals">
                 <Button 
                   icon={<DownloadOutlined />} 
                   onClick={exportDeferrals}
@@ -868,24 +766,24 @@ const Deferrals = ({ userId }) => {
       {/* Table Title */}
       <Divider style={{ margin: "12px 0" }}>
         <span style={{ color: PRIMARY_BLUE, fontSize: 16, fontWeight: 600 }}>
-          Deferral Requests ({filteredDeferrals.length} items)
+          Pending Deferral Requests ({filteredDeferrals.length} items)
         </span>
       </Divider>
 
       {/* Deferrals Table */}
       {loading ? (
         <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: 40 }}>
-          <Spin tip="Loading deferrals..." />
+          <Spin tip="Loading pending deferrals..." />
         </div>
       ) : filteredDeferrals.length === 0 ? (
         <Empty 
           description={
             <div>
-              <p style={{ fontSize: 16, marginBottom: 8 }}>No deferrals found</p>
+              <p style={{ fontSize: 16, marginBottom: 8 }}>No pending deferrals found</p>
               <p style={{ color: "#999" }}>
-                {filters.search || filters.status !== 'all' || filters.priority !== 'all' 
+                {filters.search || filters.priority !== 'all' 
                   ? 'Try changing your filters' 
-                  : 'No deferral requests available'}
+                  : 'All deferral requests have been processed'}
               </p>
             </div>
           } 
@@ -903,7 +801,7 @@ const Deferrals = ({ userId }) => {
               showSizeChanger: true, 
               pageSizeOptions: ["10", "20", "50"], 
               position: ["bottomCenter"],
-              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} deferrals`
+              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} pending deferrals`
             }} 
             rowClassName={(record, index) => (index % 2 === 0 ? "bg-white" : "bg-gray-50")}
             scroll={{ x: 1300 }}
@@ -911,12 +809,12 @@ const Deferrals = ({ userId }) => {
         </div>
       )}
 
-      {/* Deferral Detail Modal */}
+      {/* Deferral Review Modal */}
       <Modal
         title={
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 18, fontWeight: "bold", color: PRIMARY_BLUE }}>
-              Deferral Details
+              Review Deferral Request
             </span>
             {selectedDeferral && (
               <Tag color="blue" style={{ fontWeight: "bold" }}>
@@ -929,6 +827,8 @@ const Deferrals = ({ userId }) => {
         onCancel={() => {
           setModalVisible(false);
           setSelectedDeferral(null);
+          setApproveComment("");
+          setRejectReason("");
         }}
         width={800}
         footer={[
@@ -937,31 +837,31 @@ const Deferrals = ({ userId }) => {
             onClick={() => {
               setModalVisible(false);
               setSelectedDeferral(null);
+              setApproveComment("");
+              setRejectReason("");
             }}
           >
-            Close
+            Cancel
           </Button>,
-          selectedDeferral?.status === "deferral_pending_creator_review" && (
-            <Button 
-              key="reject" 
-              danger
-              onClick={() => handleDeferralAction(selectedDeferral._id, "reject", "Rejected from modal")}
-              loading={loading}
-            >
-              Reject
-            </Button>
-          ),
-          selectedDeferral?.status === "deferral_pending_creator_review" && (
-            <Button 
-              key="approve" 
-              type="primary" 
-              onClick={() => handleDeferralAction(selectedDeferral._id, "approve", "Approved from modal")}
-              loading={loading}
-              style={{ background: ACCENT_LIME, borderColor: ACCENT_LIME }}
-            >
-              Approve
-            </Button>
-          )
+          <Button 
+            key="reject" 
+            danger
+            onClick={handleRejectDeferral}
+            loading={actionLoading}
+            disabled={actionLoading}
+          >
+            Reject Deferral
+          </Button>,
+          <Button 
+            key="approve" 
+            type="primary" 
+            onClick={handleApproveDeferral}
+            loading={actionLoading}
+            disabled={actionLoading}
+            style={{ background: ACCENT_LIME, borderColor: ACCENT_LIME }}
+          >
+            Approve Deferral
+          </Button>
         ]}
       >
         {selectedDeferral && (
@@ -1031,7 +931,7 @@ const Deferrals = ({ userId }) => {
             </Card>
 
             {/* Timeline Card */}
-            <Card size="small" title="Timeline">
+            <Card size="small" title="Timeline" style={{ marginBottom: 16 }}>
               <Row gutter={[16, 8]}>
                 <Col span={12}>
                   <strong>Requested:</strong>
@@ -1058,9 +958,44 @@ const Deferrals = ({ userId }) => {
               </Row>
             </Card>
 
+            {/* Approve/Reject Inputs */}
+            <Card size="small" title="Your Decision" style={{ marginBottom: 16 }}>
+              <div style={{ marginBottom: 16 }}>
+                <strong style={{ color: PRIMARY_BLUE, display: "block", marginBottom: 4 }}>
+                  Approval Comments (Required):
+                </strong>
+                <TextArea
+                  rows={3}
+                  placeholder="Enter your approval comments..."
+                  value={approveComment}
+                  onChange={(e) => setApproveComment(e.target.value)}
+                  style={{ marginBottom: 8 }}
+                />
+                <small style={{ color: "#666" }}>
+                  Provide feedback or conditions for approval
+                </small>
+              </div>
+              
+              <div>
+                <strong style={{ color: PRIMARY_BLUE, display: "block", marginBottom: 4 }}>
+                  Rejection Reason (Required if rejecting):
+                </strong>
+                <TextArea
+                  rows={3}
+                  placeholder="Enter reason for rejection..."
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  style={{ marginBottom: 8 }}
+                />
+                <small style={{ color: "#666" }}>
+                  Explain why this deferral request is being rejected
+                </small>
+              </div>
+            </Card>
+
             {/* Documents Card (if available) */}
             {selectedDeferral.documents && selectedDeferral.documents.length > 0 && (
-              <Card size="small" title="Related Documents" style={{ marginTop: 16 }}>
+              <Card size="small" title="Related Documents">
                 <Row gutter={[8, 8]}>
                   {selectedDeferral.documents.map((doc, index) => (
                     <Col span={12} key={index}>
