@@ -12,7 +12,6 @@ import {
   Card,
   Row,
   Col,
-  Statistic,
   Button,
   Tooltip,
   Divider,
@@ -237,24 +236,6 @@ export default function Reports() {
   const [dateRange, setDateRange] = useState(null);
   const [statusFilter, setStatusFilter] = useState("All");
   const [activeTab, setActiveTab] = useState("postApproval");
-
-  // Statistics
-  const stats = useMemo(() => {
-    const approvedDeferrals = MOCK_DEFERRALS.filter(d => d.status === "Approved");
-    const rejectedDeferrals = MOCK_DEFERRALS.filter(d => d.status === "Rejected");
-    const completedDCLs = MOCK_DCLS.filter(d => d.status === "Completed");
-    const activeDCLs = MOCK_DCLS.filter(d => d.status === "Active");
-    const deferredDCLs = MOCK_DCLS.filter(d => d.status === "Deferred");
-
-    return {
-      totalApprovedDeferrals: approvedDeferrals.length,
-      totalRejectedDeferrals: rejectedDeferrals.length,
-      totalCompletedDCLs: completedDCLs.length,
-      totalActiveDCLs: activeDCLs.length,
-      totalDeferredDCLs: deferredDCLs.length,
-      totalDCLs: MOCK_DCLS.length,
-    };
-  }, []);
 
   // Filter functions
   const filteredPostApprovalDeferrals = useMemo(() => {
@@ -791,50 +772,6 @@ export default function Reports() {
         </Row>
       </Card>
 
-      {/* Statistics Cards */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col xs={24} sm={12} md={6}>
-          <Card>
-            <Statistic
-              title="Total DCLs"
-              value={stats.totalDCLs}
-              prefix={<FileTextOutlined style={{ color: PRIMARY_BLUE }} />}
-              valueStyle={{ color: PRIMARY_BLUE }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Card>
-            <Statistic
-              title="Post-approval Deferrals"
-              value={stats.totalApprovedDeferrals}
-              prefix={<CheckCircleOutlined style={{ color: SUCCESS_GREEN }} />}
-              valueStyle={{ color: SUCCESS_GREEN }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Card>
-            <Statistic
-              title="Rejected Deferrals"
-              value={stats.totalRejectedDeferrals}
-              prefix={<CloseCircleOutlined style={{ color: ERROR_RED }} />}
-              valueStyle={{ color: ERROR_RED }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Card>
-            <Statistic
-              title="Active DCLs"
-              value={stats.totalActiveDCLs}
-              prefix={<FileTextOutlined style={{ color: INFO_BLUE }} />}
-              valueStyle={{ color: INFO_BLUE }}
-            />
-          </Card>
-        </Col>
-      </Row>
-
       {/* Tabs Section */}
       <Card>
         <Tabs 
@@ -852,7 +789,7 @@ export default function Reports() {
             tab={
               <span>
                 <CheckCircleOutlined />
-                Post-approval Deferrals ({stats.totalApprovedDeferrals})
+                Post-approval Deferrals
               </span>
             } 
             key="postApproval"
@@ -896,7 +833,7 @@ export default function Reports() {
             tab={
               <span>
                 <CloseCircleOutlined />
-                Rejected Deferrals ({stats.totalRejectedDeferrals})
+                Rejected Deferrals
               </span>
             } 
             key="rejected"
@@ -940,7 +877,7 @@ export default function Reports() {
             tab={
               <span>
                 <FileTextOutlined />
-                All DCLs ({stats.totalDCLs})
+                All DCLs
               </span>
             } 
             key="allDCLs"
