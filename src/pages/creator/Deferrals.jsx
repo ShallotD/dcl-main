@@ -20,7 +20,6 @@ import {
   Input as AntInput
 } from "antd";
 import { 
-  EyeOutlined, 
   SearchOutlined, 
   DownloadOutlined, 
   ReloadOutlined,
@@ -407,7 +406,7 @@ const Deferrals = ({ userId }) => {
       color: ${ACCENT_LIME} !important; 
     }
     .deferrals-table .ant-pagination .ant-pagination-options .ant-select-selector { 
-      borderRadius: 8px !important; 
+      border-radius: 8px !important; 
     }
   `;
 
@@ -460,7 +459,7 @@ const Deferrals = ({ userId }) => {
     { 
       title: "Document", 
       key: "document",
-      width: 200,
+      width: 220,
       render: (_, record) => (
         <div>
           <div style={{ fontWeight: 600, marginBottom: 4, color: PRIMARY_BLUE }}>
@@ -472,7 +471,7 @@ const Deferrals = ({ userId }) => {
             fontStyle: "italic",
             lineHeight: 1.3
           }}>
-            {record.deferralReason?.substring(0, 50)}...
+            {record.deferralReason?.substring(0, 60)}...
           </div>
         </div>
       )
@@ -593,33 +592,6 @@ const Deferrals = ({ userId }) => {
           Pending Review
         </Tag>
       )
-    },
-    { 
-      title: "Actions", 
-      width: 100, 
-      render: (_, record) => (
-        <Space>
-          <Tooltip title="Review Deferral">
-            <Button 
-              size="small" 
-              type="primary"
-              onClick={() => {
-                setSelectedDeferral(record);
-                setModalVisible(true);
-              }}
-              style={{ 
-                backgroundColor: ACCENT_LIME,
-                borderColor: ACCENT_LIME,
-                fontWeight: "bold", 
-                fontSize: 12, 
-                borderRadius: 6,
-              }}
-            >
-              Review
-            </Button>
-          </Tooltip>
-        </Space>
-      ) 
     }
   ];
 
@@ -686,6 +658,12 @@ const Deferrals = ({ userId }) => {
     </Card>
   );
 
+  // Handle row click to open modal
+  const handleRowClick = (record) => {
+    setSelectedDeferral(record);
+    setModalVisible(true);
+  };
+
   return (
     <div style={{ padding: 24 }}>
       <style>{customTableStyles}</style>
@@ -695,7 +673,7 @@ const Deferrals = ({ userId }) => {
         style={{ 
           marginBottom: 24,
           borderRadius: 8,
-          boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.1)",  // FIXED: changed box-shadow to boxShadow
           borderLeft: `4px solid ${ACCENT_LIME}`
         }}
         bodyStyle={{ padding: 16 }}
@@ -783,12 +761,16 @@ const Deferrals = ({ userId }) => {
               showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} pending deferrals`
             }} 
             rowClassName={(record, index) => (index % 2 === 0 ? "bg-white" : "bg-gray-50")}
-            scroll={{ x: 1400 }}
+            scroll={{ x: 1300 }}
+            onRow={(record) => ({
+              onClick: () => handleRowClick(record),
+              style: { cursor: 'pointer' }
+            })}
           />
         </div>
       )}
 
-      {/* Deferral Review Modal - Updated to include Customer Name */}
+      {/* Deferral Review Modal */}
       <Modal
         title={
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
