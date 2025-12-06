@@ -28,7 +28,8 @@ import {
   WarningOutlined,
   ExclamationCircleOutlined,
   UserOutlined,
-  FileTextOutlined
+  FileTextOutlined,
+  CustomerServiceOutlined
 } from "@ant-design/icons";
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -72,6 +73,7 @@ const Deferrals = ({ userId }) => {
       _id: "1",
       dclNo: "DCL-2024-001",
       customerNumber: "CUST001",
+      customerName: "Tech Innovations Ltd",
       documentName: "Business Registration Certificate",
       deferralReason: "Client traveling, will provide next week",
       rmComments: "Client promised to provide upon return",
@@ -98,6 +100,7 @@ const Deferrals = ({ userId }) => {
       _id: "2",
       dclNo: "DCL-2024-002",
       customerNumber: "CUST002",
+      customerName: "Jane Mwangi",
       documentName: "Latest Bank Statements",
       deferralReason: "Bank system down, cannot access statements",
       rmComments: "Bank IT issue, expecting resolution in 2 days",
@@ -124,6 +127,7 @@ const Deferrals = ({ userId }) => {
       _id: "3",
       dclNo: "DCL-2024-003",
       customerNumber: "CUST003",
+      customerName: "Robert Kamau Enterprises",
       documentName: "Tax Compliance Certificate",
       deferralReason: "KRA portal maintenance",
       rmComments: "Government portal issue",
@@ -144,6 +148,60 @@ const Deferrals = ({ userId }) => {
       documents: [
         { name: "Title Deed", status: "uploaded" },
         { name: "Valuation Report", status: "pending" }
+      ]
+    },
+    {
+      _id: "4",
+      dclNo: "DCL-2024-004",
+      customerNumber: "CUST004",
+      customerName: "Green Farms Cooperative",
+      documentName: "Audited Financial Statements",
+      deferralReason: "Auditor unavailable due to illness",
+      rmComments: "Auditor will return next week",
+      expiryDate: "2024-12-25T00:00:00.000Z",
+      requestedDate: "2024-01-12T11:45:00.000Z",
+      status: "deferral_pending_creator_review",
+      loanType: "Agricultural Loan",
+      loanAmount: "KES 8,000,000",
+      assignedRM: { 
+        name: "Sarah Williams", 
+        id: "RM004",
+        email: "sarah.w@ncbabank.com"
+      },
+      priority: "medium",
+      slaStatus: "normal",
+      daysRemaining: 20,
+      createdAt: "2024-01-12T11:45:00.000Z",
+      documents: [
+        { name: "Land Title", status: "uploaded" },
+        { name: "Business Plan", status: "uploaded" }
+      ]
+    },
+    {
+      _id: "5",
+      dclNo: "DCL-2024-005",
+      customerNumber: "CUST005",
+      customerName: "Smart Solutions Ltd",
+      documentName: "VAT Compliance Certificate",
+      deferralReason: "Awaiting KRA clearance",
+      rmComments: "Processing at KRA headquarters",
+      expiryDate: "2024-12-10T00:00:00.000Z",
+      requestedDate: "2024-01-11T16:20:00.000Z",
+      status: "deferral_pending_creator_review",
+      loanType: "Equipment Financing",
+      loanAmount: "KES 12,000,000",
+      assignedRM: { 
+        name: "Michael Brown", 
+        id: "RM005",
+        email: "michael.b@ncbabank.com"
+      },
+      priority: "low",
+      slaStatus: "normal",
+      daysRemaining: 15,
+      createdAt: "2024-01-11T16:20:00.000Z",
+      documents: [
+        { name: "Invoice", status: "pending" },
+        { name: "Quotation", status: "uploaded" }
       ]
     }
   ];
@@ -200,6 +258,7 @@ const Deferrals = ({ userId }) => {
       const searchLower = filters.search.toLowerCase();
       filtered = filtered.filter(d => 
         d.customerNumber.toLowerCase().includes(searchLower) ||
+        d.customerName.toLowerCase().includes(searchLower) ||
         d.dclNo.toLowerCase().includes(searchLower) ||
         d.documentName.toLowerCase().includes(searchLower) ||
         d.assignedRM.name.toLowerCase().includes(searchLower) ||
@@ -283,9 +342,9 @@ const Deferrals = ({ userId }) => {
   // Export functionality
   const exportDeferrals = () => {
     const csvContent = "data:text/csv;charset=utf-8," + 
-      "Customer No,DCL No,Document,Loan Type,Expiry Date,RM,Priority,Days Remaining\n" +
+      "Customer No,Customer Name,DCL No,Document,Loan Type,Expiry Date,RM,Priority,Days Remaining\n" +
       filteredDeferrals.map(d => 
-        `${d.customerNumber},${d.dclNo},"${d.documentName}",${d.loanType},${dayjs(d.expiryDate).format('DD/MM/YYYY')},${d.assignedRM.name},${d.priority},${d.daysRemaining}`
+        `${d.customerNumber},"${d.customerName}",${d.dclNo},"${d.documentName}",${d.loanType},${dayjs(d.expiryDate).format('DD/MM/YYYY')},${d.assignedRM.name},${d.priority},${d.daysRemaining}`
       ).join("\n");
     
     const encodedUri = encodeURI(csvContent);
@@ -352,12 +411,12 @@ const Deferrals = ({ userId }) => {
     }
   `;
 
-  // Enhanced columns with deferral-specific data
+  // Enhanced columns with deferral-specific data INCLUDING CUSTOMER NAME
   const columns = [
     { 
       title: "DCL No", 
       dataIndex: "dclNo", 
-      width: 200, 
+      width: 180, 
       render: (text) => (
         <div style={{ fontWeight: "bold", color: PRIMARY_BLUE, display: "flex", alignItems: "center", gap: 8 }}>
           <FileTextOutlined style={{ color: SECONDARY_PURPLE }} />
@@ -366,32 +425,54 @@ const Deferrals = ({ userId }) => {
       )
     },
     { 
-      title: "Customer", 
+      title: "Customer Number", 
       dataIndex: "customerNumber", 
       width: 150, 
-      render: (text, record) => (
-        <div>
-          <div style={{ color: SECONDARY_PURPLE, fontWeight: 500 }}>{text}</div>
-          <div style={{ fontSize: 12, color: "#666" }}>{record.loanType}</div>
+      render: (text) => (
+        <div style={{ color: SECONDARY_PURPLE, fontWeight: 500, fontSize: 13 }}>
+          {text}
         </div>
       )
     },
     { 
-      title: "Document & Reason", 
-      key: "documentReason",
-      width: 250,
+      title: "Customer Name", 
+      dataIndex: "customerName", 
+      width: 200, 
+      render: (text, record) => (
+        <div>
+          <div style={{ 
+            fontWeight: 600, 
+            color: PRIMARY_BLUE,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            marginBottom: 2
+          }}>
+            <CustomerServiceOutlined style={{ fontSize: 12 }} />
+            {text}
+          </div>
+          <div style={{ fontSize: 11, color: "#666" }}>
+            {record.loanType}
+          </div>
+        </div>
+      )
+    },
+    { 
+      title: "Document", 
+      key: "document",
+      width: 200,
       render: (_, record) => (
         <div>
           <div style={{ fontWeight: 600, marginBottom: 4, color: PRIMARY_BLUE }}>
             {record.documentName}
           </div>
           <div style={{ 
-            fontSize: 12, 
+            fontSize: 11, 
             color: "#666",
             fontStyle: "italic",
             lineHeight: 1.3
           }}>
-            {record.deferralReason?.substring(0, 60)}...
+            {record.deferralReason?.substring(0, 50)}...
           </div>
         </div>
       )
@@ -403,14 +484,14 @@ const Deferrals = ({ userId }) => {
       render: (rm) => (
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           <UserOutlined style={{ color: PRIMARY_BLUE, fontSize: 12 }} />
-          <span style={{ color: PRIMARY_BLUE, fontWeight: 500 }}>{rm?.name || "N/A"}</span>
+          <span style={{ color: PRIMARY_BLUE, fontWeight: 500, fontSize: 13 }}>{rm?.name || "N/A"}</span>
         </div>
       )
     },
     { 
       title: "Timeline", 
       key: "timeline",
-      width: 140,
+      width: 130,
       render: (_, record) => {
         const expiryDate = dayjs(record.expiryDate);
         const now = dayjs();
@@ -555,7 +636,7 @@ const Deferrals = ({ userId }) => {
       <Row gutter={[16, 16]} align="middle">
         <Col xs={24} sm={12} md={8}>
           <Input
-            placeholder="Search customer, DCL, document..."
+            placeholder="Search customer name, number, DCL..."
             prefix={<SearchOutlined />}
             value={filters.search}
             onChange={(e) => setFilters({...filters, search: e.target.value})}
@@ -702,12 +783,12 @@ const Deferrals = ({ userId }) => {
               showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} pending deferrals`
             }} 
             rowClassName={(record, index) => (index % 2 === 0 ? "bg-white" : "bg-gray-50")}
-            scroll={{ x: 1300 }}
+            scroll={{ x: 1400 }}
           />
         </div>
       )}
 
-      {/* Deferral Review Modal */}
+      {/* Deferral Review Modal - Updated to include Customer Name */}
       <Modal
         title={
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -764,7 +845,7 @@ const Deferrals = ({ userId }) => {
       >
         {selectedDeferral && (
           <div style={{ padding: "16px 0" }}>
-            {/* Summary Card */}
+            {/* Summary Card - Updated with Customer Name */}
             <Card 
               size="small" 
               title="Deferral Summary"
@@ -772,8 +853,14 @@ const Deferrals = ({ userId }) => {
             >
               <Row gutter={[16, 8]}>
                 <Col span={12}>
-                  <strong style={{ color: PRIMARY_BLUE }}>Customer:</strong>
+                  <strong style={{ color: PRIMARY_BLUE }}>Customer Number:</strong>
                   <div>{selectedDeferral.customerNumber}</div>
+                </Col>
+                <Col span={12}>
+                  <strong style={{ color: PRIMARY_BLUE }}>Customer Name:</strong>
+                  <div style={{ fontWeight: 600, color: PRIMARY_BLUE }}>
+                    {selectedDeferral.customerName}
+                  </div>
                 </Col>
                 <Col span={12}>
                   <strong style={{ color: PRIMARY_BLUE }}>Loan Type:</strong>
@@ -794,6 +881,10 @@ const Deferrals = ({ userId }) => {
                       {selectedDeferral.priority.toUpperCase()}
                     </Tag>
                   </div>
+                </Col>
+                <Col span={12}>
+                  <strong style={{ color: PRIMARY_BLUE }}>Assigned RM:</strong>
+                  <div>{selectedDeferral.assignedRM?.name}</div>
                 </Col>
               </Row>
             </Card>
