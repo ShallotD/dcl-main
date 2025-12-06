@@ -156,11 +156,10 @@ const MOCK_DEFERRALS = [
     dclNo: "DCL-2024-10003",
     customerNumber: "993015",
     customerName: "Robert Kamau Enterprises",
-    workstep: "WS-003",
     document: "Credit Report",
-    reason: "Awaiting updated credit information",
+    reason: "Client traveling abroad, will provide document upon return",
     expiryDate: "2025-12-10",
-    creatorComments: "Client has promised to provide updated credit report by Dec 5",
+    creatorComments: "Approved with condition to submit within 5 days of return",
     status: "Approved",
     decisionDate: "2025-11-25",
     decisionBy: "John Creator",
@@ -169,22 +168,17 @@ const MOCK_DEFERRALS = [
     dateRequested: "2025-11-24",
     assignedRM: { name: "Alice Williams" },
     priority: "medium",
-    daysRemaining: 5,
-    documents: [
-      { name: "Credit Report", status: "pending" },
-      { name: "ID Copy", status: "uploaded" }
-    ]
+    daysRemaining: 5
   },
   {
     id: "DEF-002",
     dclNo: "DCL-2024-10006",
     customerNumber: "774029",
     customerName: "Smart Investments",
-    workstep: "WS-006",
     document: "Audited Financial Statements",
-    reason: "Auditor unavailable, will provide next week",
+    reason: "Auditor unavailable due to medical leave, will provide next week",
     expiryDate: "2025-12-15",
-    creatorComments: "Approved with condition that statements are submitted by Dec 12",
+    creatorComments: "Approved - auditor medical situation verified",
     status: "Approved",
     decisionDate: "2025-11-19",
     decisionBy: "Jane Approver",
@@ -193,11 +187,7 @@ const MOCK_DEFERRALS = [
     dateRequested: "2025-11-18",
     assignedRM: { name: "Jane Smith" },
     priority: "low",
-    daysRemaining: 12,
-    documents: [
-      { name: "Financial Statements", status: "pending" },
-      { name: "Tax Returns", status: "uploaded" }
-    ]
+    daysRemaining: 12
   },
 
   // Rejected deferrals (Rejected by creator)
@@ -206,11 +196,10 @@ const MOCK_DEFERRALS = [
     dclNo: "DCL-2024-10005",
     customerNumber: "663018",
     customerName: "Tech Solutions Ltd",
-    workstep: "WS-005",
     document: "Bank Statements",
-    reason: "Could not access online banking",
+    reason: "Could not access online banking due to password issues",
     expiryDate: "2025-12-05",
-    creatorComments: "Insufficient reason provided - client can visit bank branch",
+    creatorComments: "Client should visit bank branch to reset credentials",
     status: "Rejected",
     decisionDate: "2025-11-26",
     decisionBy: "Mary Reviewer",
@@ -219,22 +208,17 @@ const MOCK_DEFERRALS = [
     dateRequested: "2025-11-25",
     assignedRM: { name: "John Doe" },
     priority: "high",
-    daysRemaining: -2,
-    documents: [
-      { name: "Bank Statements", status: "pending" },
-      { name: "Business License", status: "uploaded" }
-    ]
+    daysRemaining: -2
   },
   {
     id: "DEF-005",
     dclNo: "DCL-2024-10008",
     customerNumber: "996023",
     customerName: "Quick Retail Ltd",
-    workstep: "WS-008",
     document: "Tax Compliance Certificate",
-    reason: "KRA portal issues",
+    reason: "KRA portal maintenance, cannot download certificate",
     expiryDate: "2025-12-12",
-    creatorComments: "RM should have advised client to visit KRA office directly",
+    creatorComments: "RM should have advised client to visit KRA office",
     status: "Rejected",
     decisionDate: "2025-11-29",
     decisionBy: "John Creator",
@@ -243,11 +227,7 @@ const MOCK_DEFERRALS = [
     dateRequested: "2025-11-28",
     assignedRM: { name: "Sarah Williams" },
     priority: "medium",
-    daysRemaining: 9,
-    documents: [
-      { name: "KRA Certificate", status: "pending" },
-      { name: "Business Permit", status: "uploaded" }
-    ]
+    daysRemaining: 9
   },
 ];
 
@@ -285,7 +265,7 @@ export default function Reports() {
           d.customerNumber.includes(searchText) ||
           d.dclNo.includes(searchText) ||
           d.customerName.toLowerCase().includes(searchText.toLowerCase()) ||
-          d.workstep.toLowerCase().includes(searchText.toLowerCase())) &&
+          d.document.toLowerCase().includes(searchText.toLowerCase())) &&
         (!dateRange ||
           (d.decisionDate &&
             dayjs(d.decisionDate).isBetween(
@@ -304,7 +284,8 @@ export default function Reports() {
         (searchText === "" ||
           d.customerNumber.includes(searchText) ||
           d.dclNo.includes(searchText) ||
-          d.customerName.toLowerCase().includes(searchText.toLowerCase())) &&
+          d.customerName.toLowerCase().includes(searchText.toLowerCase()) ||
+          d.document.toLowerCase().includes(searchText.toLowerCase())) &&
         (!dateRange ||
           (d.decisionDate &&
             dayjs(d.decisionDate).isBetween(
@@ -324,12 +305,12 @@ export default function Reports() {
           d.customerNumber.includes(searchText) ||
           d.dclNo.includes(searchText) ||
           d.customerName.toLowerCase().includes(searchText.toLowerCase()) ||
-          d.workstep.toLowerCase().includes(searchText.toLowerCase()))
+          d.documentName.toLowerCase().includes(searchText.toLowerCase()))
     );
   }, [statusFilter, searchText]);
 
-  // Timeline render function
-  const renderTimeline = (record) => {
+  // Timeline render function for expiry date
+  const renderExpiryDate = (record) => {
     const expiryDate = dayjs(record.expiryDate);
     const now = dayjs();
     const daysRemaining = expiryDate.diff(now, 'day');
@@ -353,47 +334,54 @@ export default function Reports() {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         {React.cloneElement(statusIcon, { style: { color: statusColor, fontSize: 14 } })}
-        <span style={{ color: statusColor, fontWeight: "bold", fontSize: 12 }}>
-          {statusText}
+        <span style={{ fontWeight: "bold", color: statusColor, fontSize: 12 }}>
+          {dayjs(record.expiryDate).format("DD/MM/YYYY")}
         </span>
       </div>
     );
   };
 
-  // Priority render function
-  const renderPriority = (priority) => {
-    const priorityConfig = {
-      low: { color: SUCCESS_GREEN, label: "Low" },
-      medium: { color: WARNING_ORANGE, label: "Medium" },
-      high: { color: ERROR_RED, label: "High" },
-      critical: { color: "#8B0000", label: "Critical" }
+  // Status render function
+  const renderStatus = (status, isApproved = false) => {
+    const statusConfig = {
+      "Approved": { 
+        color: SUCCESS_GREEN, 
+        icon: <CheckCircleOutlined />,
+        text: "Approved" 
+      },
+      "Rejected": { 
+        color: ERROR_RED, 
+        icon: <CloseCircleOutlined />,
+        text: "Rejected" 
+      }
     };
     
-    const config = priorityConfig[priority] || priorityConfig.medium;
+    const config = statusConfig[status] || { color: "default", icon: null, text: status };
     
     return (
       <Tag 
         color={config.color}
         style={{ 
           fontWeight: "bold",
-          border: "none",
-          color: "white",
-          width: "100%",
-          textAlign: "center",
-          fontSize: 11
+          fontSize: 11,
+          padding: "4px 8px",
+          display: "flex",
+          alignItems: "center",
+          gap: 4
         }}
+        icon={config.icon}
       >
-        {config.label}
+        {config.text}
       </Tag>
     );
   };
 
-  // Columns
-  const postApprovalColumns = [
+  // Common columns for Post-approval and Rejected Deferrals
+  const commonDeferralColumns = [
     { 
       title: "DCL No", 
       dataIndex: "dclNo", 
-      width: 180, 
+      width: 160, 
       render: (text) => (
         <div style={{ fontWeight: "bold", color: PRIMARY_BLUE, display: "flex", alignItems: "center", gap: 8 }}>
           <FileTextOutlined style={{ color: SECONDARY_PURPLE }} />
@@ -404,7 +392,7 @@ export default function Reports() {
     { 
       title: "Customer No", 
       dataIndex: "customerNumber", 
-      width: 150, 
+      width: 130, 
       render: (text) => (
         <div style={{ color: SECONDARY_PURPLE, fontWeight: 500, fontSize: 13 }}>
           {text}
@@ -415,164 +403,26 @@ export default function Reports() {
       title: "Customer Name", 
       dataIndex: "customerName", 
       width: 200, 
-      render: (text, record) => (
-        <div>
-          <div style={{ 
-            fontWeight: 600, 
-            color: PRIMARY_BLUE,
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            marginBottom: 2
-          }}>
-            <CustomerServiceOutlined style={{ fontSize: 12 }} />
-            {text}
-          </div>
-          <div style={{ fontSize: 11, color: "#666" }}>
-            {record.product}
-          </div>
+      render: (text) => (
+        <div style={{ fontWeight: 600, color: PRIMARY_BLUE }}>
+          {text}
         </div>
       )
     },
     { 
       title: "Document", 
       dataIndex: "document", 
-      width: 200, 
-      render: (text) => (
-        <div>
-          <div style={{ fontWeight: 600, marginBottom: 4, color: PRIMARY_BLUE }}>
-            {text}
-          </div>
-        </div>
-      )
-    },
-    { 
-      title: "RM", 
-      dataIndex: "assignedRM", 
-      width: 120, 
-      render: (rm) => (
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <UserOutlined style={{ color: PRIMARY_BLUE, fontSize: 12 }} />
-          <span style={{ color: PRIMARY_BLUE, fontWeight: 500, fontSize: 13 }}>{rm?.name || "N/A"}</span>
-        </div>
-      )
-    },
-    { 
-      title: "Timeline", 
-      key: "timeline",
-      width: 130,
-      render: (_, record) => renderTimeline(record)
-    },
-    { 
-      title: "# Docs", 
-      dataIndex: "documents", 
-      width: 80, 
-      align: "center", 
-      render: (docs) => (
-        <Tag 
-          color={LIGHT_YELLOW} 
-          style={{ 
-            fontSize: 12, 
-            borderRadius: 999, 
-            fontWeight: "bold", 
-            color: PRIMARY_BLUE, 
-            border: `1px solid ${HIGHLIGHT_GOLD}`,
-            minWidth: 32,
-            textAlign: "center"
-          }}
-        >
-          {Array.isArray(docs) ? docs.length : 0}
-        </Tag>
-      ) 
-    },
-    { 
-      title: "Priority", 
-      dataIndex: "priority", 
-      width: 100,
-      render: renderPriority
-    },
-    { 
-      title: "Status", 
-      dataIndex: "status", 
-      width: 120, 
-      render: (status) => (
-        <Tag 
-          color="success" 
-          style={{ 
-            fontSize: 11, 
-            borderRadius: 999, 
-            fontWeight: "bold", 
-            padding: "2px 8px"
-          }}
-          icon={<CheckCircleOutlined />}
-        >
-          {status}
-        </Tag>
-      )
-    }
-  ];
-
-  const rejectedDeferralsColumns = [
-    { 
-      title: "DCL No", 
-      dataIndex: "dclNo", 
       width: 180, 
       render: (text) => (
-        <div style={{ fontWeight: "bold", color: PRIMARY_BLUE, display: "flex", alignItems: "center", gap: 8 }}>
-          <FileTextOutlined style={{ color: SECONDARY_PURPLE }} />
+        <div style={{ fontWeight: 500, color: PRIMARY_BLUE }}>
           {text}
-        </div>
-      )
-    },
-    { 
-      title: "Customer No", 
-      dataIndex: "customerNumber", 
-      width: 150, 
-      render: (text) => (
-        <div style={{ color: SECONDARY_PURPLE, fontWeight: 500, fontSize: 13 }}>
-          {text}
-        </div>
-      )
-    },
-    { 
-      title: "Customer Name", 
-      dataIndex: "customerName", 
-      width: 200, 
-      render: (text, record) => (
-        <div>
-          <div style={{ 
-            fontWeight: 600, 
-            color: PRIMARY_BLUE,
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            marginBottom: 2
-          }}>
-            <CustomerServiceOutlined style={{ fontSize: 12 }} />
-            {text}
-          </div>
-          <div style={{ fontSize: 11, color: "#666" }}>
-            {record.product}
-          </div>
-        </div>
-      )
-    },
-    { 
-      title: "Document", 
-      dataIndex: "document", 
-      width: 200, 
-      render: (text) => (
-        <div>
-          <div style={{ fontWeight: 600, marginBottom: 4, color: PRIMARY_BLUE }}>
-            {text}
-          </div>
         </div>
       )
     },
     { 
       title: "RM", 
       dataIndex: "assignedRM", 
-      width: 120, 
+      width: 140, 
       render: (rm) => (
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           <UserOutlined style={{ color: PRIMARY_BLUE, fontSize: 12 }} />
@@ -581,60 +431,63 @@ export default function Reports() {
       )
     },
     { 
-      title: "Timeline", 
-      key: "timeline",
-      width: 130,
-      render: (_, record) => renderTimeline(record)
+      title: "Reason", 
+      dataIndex: "reason", 
+      width: 220, 
+      render: (text) => (
+        <div style={{ 
+          fontStyle: "italic", 
+          fontSize: 12, 
+          color: "#666",
+          lineHeight: 1.4
+        }}>
+          {text}
+        </div>
+      )
     },
     { 
-      title: "# Docs", 
-      dataIndex: "documents", 
-      width: 80, 
-      align: "center", 
-      render: (docs) => (
-        <Tag 
-          color={LIGHT_YELLOW} 
-          style={{ 
-            fontSize: 12, 
-            borderRadius: 999, 
-            fontWeight: "bold", 
-            color: PRIMARY_BLUE, 
-            border: `1px solid ${HIGHLIGHT_GOLD}`,
-            minWidth: 32,
-            textAlign: "center"
-          }}
-        >
-          {Array.isArray(docs) ? docs.length : 0}
-        </Tag>
-      ) 
+      title: "Expiry Date", 
+      dataIndex: "expiryDate", 
+      width: 140, 
+      render: (date, record) => renderExpiryDate(record)
     },
     { 
-      title: "Priority", 
-      dataIndex: "priority", 
-      width: 100,
-      render: renderPriority
+      title: "Creator Comment", 
+      dataIndex: "creatorComments", 
+      width: 220, 
+      render: (text) => (
+        <div style={{ 
+          fontSize: 12, 
+          color: "#333",
+          lineHeight: 1.4,
+          backgroundColor: "#f8f9fa",
+          padding: "8px",
+          borderRadius: "4px"
+        }}>
+          {text}
+        </div>
+      )
+    },
+    { 
+      title: "Decision Date", 
+      dataIndex: "decisionDate", 
+      width: 130, 
+      render: (date) => (
+        <div style={{ fontWeight: 500, color: PRIMARY_BLUE }}>
+          {date ? dayjs(date).format("DD/MM/YYYY") : "-"}
+        </div>
+      )
     },
     { 
       title: "Status", 
       dataIndex: "status", 
-      width: 120, 
-      render: (status) => (
-        <Tag 
-          color="error" 
-          style={{ 
-            fontSize: 11, 
-            borderRadius: 999, 
-            fontWeight: "bold", 
-            padding: "2px 8px"
-          }}
-          icon={<CloseCircleOutlined />}
-        >
-          {status}
-        </Tag>
-      )
+      width: 110, 
+      fixed: "right",
+      render: (status, record) => renderStatus(status, record.status === "Approved")
     }
   ];
 
+  // All DCLs columns (maintained as before)
   const allDCLColumns = [
     { 
       title: "DCL No", 
@@ -707,7 +560,36 @@ export default function Reports() {
       title: "Timeline", 
       key: "timeline",
       width: 130,
-      render: (_, record) => renderTimeline(record)
+      render: (_, record) => {
+        const expiryDate = dayjs(record.expiryDate);
+        const now = dayjs();
+        const daysRemaining = expiryDate.diff(now, 'day');
+        const isExpired = daysRemaining < 0;
+        const isExpiringSoon = daysRemaining <= 3 && daysRemaining >= 0;
+
+        let statusColor = SUCCESS_GREEN;
+        let statusIcon = <ClockCircleOutlined />;
+        let statusText = `${daysRemaining}d left`;
+
+        if (isExpired) {
+          statusColor = ERROR_RED;
+          statusIcon = <ExclamationCircleOutlined />;
+          statusText = `Expired`;
+        } else if (isExpiringSoon) {
+          statusColor = WARNING_ORANGE;
+          statusIcon = <WarningOutlined />;
+          statusText = `${daysRemaining}d left`;
+        }
+
+        return (
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            {React.cloneElement(statusIcon, { style: { color: statusColor, fontSize: 14 } })}
+            <span style={{ color: statusColor, fontWeight: "bold", fontSize: 12 }}>
+              {statusText}
+            </span>
+          </div>
+        );
+      }
     },
     { 
       title: "# Docs", 
@@ -987,7 +869,7 @@ export default function Reports() {
 
             {/* Table */}
             <Table 
-              columns={postApprovalColumns}
+              columns={commonDeferralColumns}
               dataSource={filteredPostApprovalDeferrals}
               rowKey="id"
               size="large" 
@@ -999,7 +881,7 @@ export default function Reports() {
                 showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} deferrals`
               }} 
               rowClassName={(record, index) => (index % 2 === 0 ? "bg-white" : "bg-gray-50")}
-              scroll={{ x: 1300 }}
+              scroll={{ x: 1500 }}
               style={{
                 borderRadius: 12,
                 boxShadow: "0 10px 30px rgba(22, 70, 121, 0.08)",
@@ -1031,7 +913,7 @@ export default function Reports() {
 
             {/* Table */}
             <Table 
-              columns={rejectedDeferralsColumns}
+              columns={commonDeferralColumns}
               dataSource={filteredRejectedDeferrals}
               rowKey="id"
               size="large" 
@@ -1043,7 +925,7 @@ export default function Reports() {
                 showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} deferrals`
               }} 
               rowClassName={(record, index) => (index % 2 === 0 ? "bg-white" : "bg-gray-50")}
-              scroll={{ x: 1300 }}
+              scroll={{ x: 1500 }}
               style={{
                 borderRadius: 12,
                 boxShadow: "0 10px 30px rgba(22, 70, 121, 0.08)",
