@@ -9,7 +9,6 @@ import {
   Card, 
   Row, 
   Col, 
-  Statistic, 
   Input, 
   Select, 
   DatePicker,
@@ -23,17 +22,13 @@ import {
 import { 
   EyeOutlined, 
   SearchOutlined, 
-  FilterOutlined, 
   DownloadOutlined, 
   ReloadOutlined,
   ClockCircleOutlined,
-  CheckCircleOutlined,
-  CloseCircleOutlined,
   WarningOutlined,
   ExclamationCircleOutlined,
   UserOutlined,
-  FileTextOutlined,
-  CalendarOutlined
+  FileTextOutlined
 } from "@ant-design/icons";
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -65,11 +60,6 @@ const Deferrals = ({ userId }) => {
     dateRange: null
   });
   const [loading, setLoading] = useState(false);
-  const [stats, setStats] = useState({
-    total: 0,
-    expiringSoon: 0,
-    expired: 0
-  });
   
   // Action states
   const [actionLoading, setActionLoading] = useState(false);
@@ -190,28 +180,6 @@ const Deferrals = ({ userId }) => {
     const pendingReviewData = data.filter(d => d.status === "deferral_pending_creator_review");
     setDeferrals(pendingReviewData);
     setFilteredDeferrals(pendingReviewData);
-    calculateStats(pendingReviewData);
-  };
-
-  // Calculate statistics for pending deferrals only
-  const calculateStats = (data) => {
-    const now = dayjs();
-    const expiringSoon = data.filter(d => {
-      if (!d.expiryDate) return false;
-      const expiry = dayjs(d.expiryDate);
-      return expiry.diff(now, 'day') <= 3 && expiry.diff(now, 'day') >= 0;
-    });
-    
-    const expired = data.filter(d => {
-      if (!d.expiryDate) return false;
-      return dayjs(d.expiryDate).isBefore(now);
-    });
-
-    setStats({
-      total: data.length,
-      expiringSoon: expiringSoon.length,
-      expired: expired.length
-    });
   };
 
   // Apply filters
@@ -274,9 +242,6 @@ const Deferrals = ({ userId }) => {
       setSelectedDeferral(null);
       setApproveComment("");
       
-      // Refresh stats
-      calculateStats(updatedDeferrals);
-      
     } catch (error) {
       console.error("Error approving deferral:", error);
       message.error("Failed to approve deferral");
@@ -306,9 +271,6 @@ const Deferrals = ({ userId }) => {
       setModalVisible(false);
       setSelectedDeferral(null);
       setRejectReason("");
-      
-      // Refresh stats
-      calculateStats(updatedDeferrals);
       
     } catch (error) {
       console.error("Error rejecting deferral:", error);
@@ -643,67 +605,6 @@ const Deferrals = ({ userId }) => {
     </Card>
   );
 
-  // Stats row (simplified for pending only)
-  const renderStats = () => (
-    <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-      <Col xs={24} sm={12} md={6}>
-        <Card size="small" hoverable>
-          <Statistic 
-            title="Pending Deferrals" 
-            value={stats.total} 
-            prefix={<ClockCircleOutlined />}
-            valueStyle={{ color: PRIMARY_BLUE }}
-          />
-        </Card>
-      </Col>
-      
-      <Col xs={24} sm={12} md={6}>
-        <Card 
-          size="small" 
-          hoverable 
-          style={{ borderColor: WARNING_ORANGE }}
-        >
-          <Statistic 
-            title="Expiring Soon" 
-            value={stats.expiringSoon} 
-            prefix={<ExclamationCircleOutlined />}
-            valueStyle={{ color: WARNING_ORANGE }}
-          />
-        </Card>
-      </Col>
-      
-      <Col xs={24} sm={12} md={6}>
-        <Card 
-          size="small" 
-          hoverable 
-          style={{ borderColor: ERROR_RED }}
-        >
-          <Statistic 
-            title="Expired" 
-            value={stats.expired} 
-            prefix={<WarningOutlined />}
-            valueStyle={{ color: ERROR_RED }}
-          />
-        </Card>
-      </Col>
-      
-      <Col xs={24} sm={12} md={6}>
-        <Card 
-          size="small" 
-          hoverable 
-          style={{ borderColor: ACCENT_LIME }}
-        >
-          <Statistic 
-            title="Action Required" 
-            value={stats.total} 
-            prefix={<ExclamationCircleOutlined />}
-            valueStyle={{ color: ACCENT_LIME }}
-          />
-        </Card>
-      </Col>
-    </Row>
-  );
-
   return (
     <div style={{ padding: 24 }}>
       <style>{customTableStyles}</style>
@@ -723,7 +624,7 @@ const Deferrals = ({ userId }) => {
             <h2 style={{ margin: 0, color: PRIMARY_BLUE, display: "flex", alignItems: "center", gap: 12 }}>
               Pending Deferral Review
               <Badge 
-                count={stats.total} 
+                count={deferrals.length} 
                 style={{ 
                   backgroundColor: ACCENT_LIME,
                   fontSize: 12
@@ -756,9 +657,6 @@ const Deferrals = ({ userId }) => {
           </Col>
         </Row>
       </Card>
-
-      {/* Stats */}
-      {renderStats()}
 
       {/* Filters */}
       {renderFilters()}
