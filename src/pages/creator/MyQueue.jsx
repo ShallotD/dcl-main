@@ -1,8 +1,28 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { Button, Divider, Table, Tag, Spin, Empty, Tabs, Card } from "antd";
-import ChecklistsPage from "./ChecklistsPage";
+import { 
+  Button, 
+  Divider, 
+  Table, 
+  Tag, 
+  Spin, 
+  Empty, 
+  Tabs, 
+  Card, 
+  Row, 
+  Col,
+  Input,
+  DatePicker,
+  Badge,
+  Typography
+} from "antd";
+import { 
+  SearchOutlined,
+  FileTextOutlined,
+  UserOutlined,
+  CustomerServiceOutlined
+} from "@ant-design/icons";
 import CreatorQueueChecklistModal from "../../components/modals/CreatorQueueChecklistModal";
-// import { useGetChecklistsQuery } from "../../api/checklistApi";
+import dayjs from "dayjs";
 
 // Theme Colors
 const PRIMARY_BLUE = "#164679";
@@ -10,6 +30,14 @@ const ACCENT_LIME = "#b5d334";
 const HIGHLIGHT_GOLD = "#fcb116";
 const LIGHT_YELLOW = "#fcd716";
 const SECONDARY_PURPLE = "#7e6496";
+const SUCCESS_GREEN = "#52c41a";
+const ERROR_RED = "#ff4d4f";
+const WARNING_ORANGE = "#faad14";
+const INFO_BLUE = "#1890ff";
+
+const { RangePicker } = DatePicker;
+const { Text } = Typography;
+const { TabPane } = Tabs;
 
 // MOCK DATA
 const MOCK_CHECKLISTS = [
@@ -30,6 +58,7 @@ const MOCK_CHECKLISTS = [
     checkerComments: "",
     createdAt: "2024-12-01T09:30:00Z",
     updatedAt: "2024-12-15T14:20:00Z",
+    expiryDate: "2024-12-20T23:59:59Z",
     documents: [
       {
         category: "Business Registration",
@@ -71,6 +100,7 @@ const MOCK_CHECKLISTS = [
     checkerComments: "",
     createdAt: "2024-12-05T11:15:00Z",
     updatedAt: "2024-12-16T10:45:00Z",
+    expiryDate: "2024-12-22T23:59:59Z",
     documents: [
       {
         category: "Vehicle Documents",
@@ -107,6 +137,7 @@ const MOCK_CHECKLISTS = [
     returnedAt: "2024-12-16T16:30:00Z",
     createdAt: "2024-12-02T14:20:00Z",
     updatedAt: "2024-12-16T16:30:00Z",
+    expiryDate: "2024-12-25T23:59:59Z",
     documents: [
       {
         category: "Property Documents",
@@ -127,11 +158,14 @@ const MOCK_CHECKLISTS = [
 ];
 
 const Myqueue = ({ userId = "current_user" }) => {
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedChecklist, setSelectedChecklist] = useState(null);
   const [activeTab, setActiveTab] = useState("current");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [mockData, setMockData] = useState([]);
+  
+  // Filters
+  const [searchText, setSearchText] = useState("");
+  const [dateRange, setDateRange] = useState(null);
 
   // Load data
   useEffect(() => {
@@ -153,15 +187,63 @@ const Myqueue = ({ userId = "current_user" }) => {
     }, 300);
   }, [userId]);
 
-  // Current Queue
-  const currentQueue = useMemo(() => {
-    return mockData.filter((c) => c.status === "pending_creator_review");
-  }, [mockData]);
+  // Filter data
+  const filteredCurrentQueue = useMemo(() => {
+    let filtered = mockData.filter((c) => c.status === "pending_creator_review");
+    
+    // Apply search filter
+    if (searchText) {
+      filtered = filtered.filter(c => 
+        c.dclNo.toLowerCase().includes(searchText.toLowerCase()) ||
+        c.customerNumber.toLowerCase().includes(searchText.toLowerCase()) ||
+        c.customerName.toLowerCase().includes(searchText.toLowerCase())
+      );
+    }
+    
+    // Apply date range filter
+    if (dateRange && dateRange[0] && dateRange[1]) {
+      filtered = filtered.filter(c => {
+        const createdDate = dayjs(c.createdAt);
+        return createdDate.isAfter(dateRange[0]) && createdDate.isBefore(dateRange[1]);
+      });
+    }
+    
+    return filtered;
+  }, [mockData, searchText, dateRange]);
 
-  // Previous Queue
-  const previousQueue = useMemo(() => {
-    return mockData.filter((c) => c.status === "returned_by_checker");
-  }, [mockData]);
+  const filteredPreviousQueue = useMemo(() => {
+    let filtered = mockData.filter((c) => c.status === "returned_by_checker");
+    
+    // Apply search filter
+    if (searchText) {
+      filtered = filtered.filter(c => 
+        c.dclNo.toLowerCase().includes(searchText.toLowerCase()) ||
+        c.customerNumber.toLowerCase().includes(searchText.toLowerCase()) ||
+        c.customerName.toLowerCase().includes(searchText.toLowerCase())
+      );
+    }
+    
+    // Apply date range filter
+    if (dateRange && dateRange[0] && dateRange[1]) {
+      filtered = filtered.filter(c => {
+        const createdDate = dayjs(c.createdAt);
+        return createdDate.isAfter(dateRange[0]) && createdDate.isBefore(dateRange[1]);
+      });
+    }
+    
+    return filtered;
+  }, [mockData, searchText, dateRange]);
+
+  // Get current data count
+  const getCurrentDataCount = () => {
+    return activeTab === "current" ? filteredCurrentQueue.length : filteredPreviousQueue.length;
+  };
+
+  // Clear filters
+  const clearFilters = () => {
+    setSearchText("");
+    setDateRange(null);
+  };
 
   // Refetch function
   const refetch = () => {
@@ -172,83 +254,91 @@ const Myqueue = ({ userId = "current_user" }) => {
     }, 200);
   };
 
-  // Table styles
-  const customTableStyles = `
-    .myqueue-table .ant-table-wrapper { 
-      border-radius: 8px; 
-      overflow: hidden; 
-      border: 1px solid #e0e0e0; 
-    }
-    .myqueue-table .ant-table-thead > tr > th { 
-      background-color: #f8f9fa !important; 
-      color: ${PRIMARY_BLUE} !important; 
-      font-weight: 600; 
-      padding: 12px 16px !important; 
-    }
-    .myqueue-table .ant-table-tbody > tr > td { 
-      padding: 12px 16px !important; 
-    }
-    .myqueue-table .ant-table-tbody > tr:hover > td { 
-      background-color: #f5f5f5 !important; 
-    }
-    .urgent-row {
-      border-left: 4px solid #ff4d4f;
-    }
-    .high-row {
-      border-left: 4px solid #faad14;
-    }
-  `;
-
-  // Base columns
-  const baseColumns = [
+  // Common columns matching the specified order
+  const getColumns = (isCurrentTab) => [
     { 
       title: "DCL No", 
       dataIndex: "dclNo", 
-      width: 150, 
-      render: (text, record) => (
-        <div>
-          <div style={{ fontWeight: "bold", color: PRIMARY_BLUE }}>{text}</div>
-          <div style={{ fontSize: 12, color: "#666" }}>{record.title}</div>
+      width: 150,
+      render: (text) => (
+        <div style={{ fontWeight: "bold", color: PRIMARY_BLUE, display: "flex", alignItems: "center", gap: 8 }}>
+          <FileTextOutlined style={{ color: SECONDARY_PURPLE }} />
+          {text}
         </div>
-      ) 
+      )
     },
     { 
-      title: "Customer", 
-      width: 180, 
-      render: (_, record) => (
-        <div>
-          <div style={{ color: SECONDARY_PURPLE, fontWeight: 500 }}>{record.customerNumber}</div>
-          <div style={{ fontSize: 12, color: "#666" }}>{record.customerName}</div>
+      title: "Customer No", 
+      dataIndex: "customerNumber", 
+      width: 120,
+      render: (text) => (
+        <div style={{ color: SECONDARY_PURPLE, fontWeight: 500, fontSize: 13 }}>
+          {text}
         </div>
-      ) 
+      )
+    },
+    { 
+      title: "Customer Name", 
+      dataIndex: "customerName", 
+      width: 180,
+      render: (text, record) => (
+        <div>
+          <div style={{ 
+            fontWeight: 600, 
+            color: PRIMARY_BLUE,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            marginBottom: 2
+          }}>
+            <CustomerServiceOutlined style={{ fontSize: 12 }} />
+            {text}
+          </div>
+          <div style={{ fontSize: 11, color: "#666" }}>
+            {record.loanType}
+          </div>
+        </div>
+      )
     },
     { 
       title: "Loan Type", 
       dataIndex: "loanType", 
-      width: 120 
+      width: 120,
+      render: (text) => (
+        <div style={{ fontWeight: 500, color: PRIMARY_BLUE }}>
+          {text}
+        </div>
+      )
     },
     { 
       title: "RM", 
       dataIndex: "assignedToRM", 
-      width: 100, 
-      render: (rm) => <span style={{ color: PRIMARY_BLUE }}>{rm?.name || "-"}</span> 
+      width: 130,
+      render: (rm) => (
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <UserOutlined style={{ color: PRIMARY_BLUE, fontSize: 12 }} />
+          <span style={{ color: PRIMARY_BLUE, fontWeight: 500, fontSize: 13 }}>{rm?.name || "N/A"}</span>
+        </div>
+      )
     },
     { 
       title: "Docs", 
       dataIndex: "documents", 
-      width: 60, 
+      width: 80, 
       align: "center", 
       render: (docs) => {
         const totalDocs = docs?.reduce((total, category) => total + (category.docList?.length || 0), 0) || 0;
         return (
           <Tag 
+            color={LIGHT_YELLOW} 
             style={{ 
-              fontSize: 11, 
-              borderRadius: 12, 
+              fontSize: 12, 
+              borderRadius: 999, 
               fontWeight: "bold", 
-              color: PRIMARY_BLUE,
-              background: LIGHT_YELLOW,
-              border: "none"
+              color: PRIMARY_BLUE, 
+              border: `1px solid ${HIGHLIGHT_GOLD}`,
+              minWidth: 32,
+              textAlign: "center"
             }}
           >
             {totalDocs}
@@ -257,8 +347,26 @@ const Myqueue = ({ userId = "current_user" }) => {
       } 
     },
     { 
-      title: "Actions", 
-      width: 90, 
+      title: "Status", 
+      width: 120,
+      render: () => (
+        <Tag 
+          color={isCurrentTab ? "orange" : "red"}
+          style={{ 
+            fontSize: 11, 
+            borderRadius: 999, 
+            fontWeight: "bold", 
+            padding: "2px 8px"
+          }}
+        >
+          {isCurrentTab ? "From RM" : "From Checker"}
+        </Tag>
+      )
+    },
+    { 
+      title: "Action", 
+      width: 100, 
+      fixed: "right",
       render: (_, record) => (
         <Button 
           size="small" 
@@ -273,8 +381,8 @@ const Myqueue = ({ userId = "current_user" }) => {
             fontWeight: "bold", 
             fontSize: 12, 
             borderRadius: 4,
-            padding: "0 8px",
-            height: 24
+            padding: "2px 12px",
+            height: 28
           }}
         >
           Review
@@ -283,182 +391,294 @@ const Myqueue = ({ userId = "current_user" }) => {
     }
   ];
 
-  // Current Queue Columns
-  const currentQueueColumns = [
-    ...baseColumns,
-    {
-      title: "Status",
-      width: 100,
-      render: () => (
-        <Tag color="orange" style={{ fontSize: 11, borderRadius: 12 }}>
-          From RM
-        </Tag>
-      )
+  // Custom table styles (matching Reports design)
+  const customTableStyles = `
+    .myqueue-table .ant-table-wrapper { 
+      border-radius: 12px; 
+      overflow: hidden; 
+      box-shadow: 0 10px 30px rgba(22, 70, 121, 0.08); 
+      border: 1px solid #e0e0e0; 
     }
-  ];
-
-  // Previous Queue Columns
-  const previousQueueColumns = [
-    ...baseColumns,
-    {
-      title: "Status",
-      width: 100,
-      render: () => (
-        <Tag color="red" style={{ fontSize: 11, borderRadius: 12 }}>
-          Returned
-        </Tag>
-      )
+    .myqueue-table .ant-table-thead > tr > th { 
+      background-color: #f7f7f7 !important; 
+      color: ${PRIMARY_BLUE} !important; 
+      font-weight: 700; 
+      font-size: 14px; 
+      padding: 16px 16px !important; 
+      border-bottom: 3px solid ${ACCENT_LIME} !important; 
+      border-right: none !important; 
     }
-  ];
-
-  // Render table
-  const renderTable = () => {
-    const isCurrentTab = activeTab === "current";
-    const dataSource = isCurrentTab ? currentQueue : previousQueue;
-    const columns = isCurrentTab ? currentQueueColumns : previousQueueColumns;
-    
-    if (loading) {
-      return (
-        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: 40 }}>
-          <Spin tip="Loading checklists...">
-            <div style={{ height: 40 }} />
-          </Spin>
-        </div>
-      );
+    .myqueue-table .ant-table-tbody > tr > td { 
+      border-bottom: 1px solid #f0f0f0 !important; 
+      border-right: none !important; 
+      padding: 14px 16px !important; 
+      font-size: 14px; 
+      color: #333; 
     }
-
-    if (dataSource.length === 0) {
-      const message = isCurrentTab 
-        ? "No checklists from RM for review" 
-        : "No checklists returned by Checker";
-      return (
-        <Empty 
-          description={message}
-          style={{ padding: 40 }} 
-        />
-      );
+    .myqueue-table .ant-table-tbody > tr.ant-table-row:hover > td { 
+      background-color: rgba(181, 211, 52, 0.1) !important; 
+      cursor: pointer;
     }
+    .myqueue-table .ant-pagination .ant-pagination-item-active { 
+      background-color: ${ACCENT_LIME} !important; 
+      border-color: ${ACCENT_LIME} !important; 
+    }
+    .myqueue-table .ant-pagination .ant-pagination-item-active a { 
+      color: ${PRIMARY_BLUE} !important; 
+      font-weight: 600; 
+    }
+  `;
 
-    return (
-      <Table 
-        className="myqueue-table"
-        columns={columns} 
-        dataSource={dataSource} 
-        rowKey={(record) => record._id} 
-        size="middle"
-        pagination={{ 
-          pageSize: 5, 
-          showSizeChanger: false,
-          size: "small"
-        }} 
-        rowClassName={(record) => {
-          if (record.priority === "urgent") return "urgent-row";
-          if (record.priority === "high") return "high-row";
-          return "";
-        }}
-        onRow={(record) => ({
-          onClick: () => setSelectedChecklist(record),
-        })}
-        style={{ marginTop: 16 }}
-      />
-    );
-  };
+  // Filter component - WITHOUT Priority filter
+  const renderFilters = () => (
+    <Card 
+      style={{ 
+        marginBottom: 16,
+        background: "#fafafa",
+        border: `1px solid ${PRIMARY_BLUE}20`,
+        borderRadius: 8
+      }}
+      size="small"
+    >
+      <Row gutter={[16, 16]} align="middle">
+        <Col xs={24} sm={12} md={8}>
+          <Input
+            placeholder="Search by DCL No, Customer No, or Name"
+            prefix={<SearchOutlined />}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            allowClear
+            size="middle"
+          />
+        </Col>
+        
+        <Col xs={24} sm={12} md={8}>
+          <RangePicker
+            style={{ width: '100%' }}
+            placeholder={['Start Date', 'End Date']}
+            value={dateRange}
+            onChange={(dates) => setDateRange(dates)}
+            format="DD/MM/YYYY"
+            size="middle"
+          />
+        </Col>
+        
+        <Col xs={24} sm={12} md={4}>
+          <Button 
+            onClick={clearFilters}
+            style={{ width: '100%' }}
+            size="middle"
+          >
+            Clear
+          </Button>
+        </Col>
+      </Row>
+    </Card>
+  );
 
   return (
-    <div style={{ padding: 20 }}>
+    <div style={{ padding: 24 }}>
       <style>{customTableStyles}</style>
 
-      <Divider style={{ margin: "12px 0" }}>
-        <span style={{ fontSize: 20, fontWeight: "bold", color: PRIMARY_BLUE }}>My Queue</span>
-      </Divider>
-
-      <Card 
+      {/* Header - Matching Reports design */}
+      <Card
         style={{ 
+          marginBottom: 24,
           borderRadius: 8,
-          boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
+          boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+          borderLeft: `4px solid ${ACCENT_LIME}`
         }}
+        bodyStyle={{ padding: 16 }}
       >
-        <Tabs
-          activeKey={activeTab}
-          onChange={setActiveTab}
-          items={[
-            {
-              key: "current",
-              label: (
-                <span>
-                  Current Queue
-                  {currentQueue.length > 0 && (
-                    <span style={{ 
-                      marginLeft: 8,
-                      background: HIGHLIGHT_GOLD,
-                      color: "white",
-                      borderRadius: "50%",
-                      padding: "0 6px",
-                      fontSize: 12
-                    }}>
-                      {currentQueue.length}
-                    </span>
-                  )}
-                </span>
-              ),
-              children: (
-                <div style={{ marginTop: 8 }}>
-                  <div style={{ 
-                    padding: 12,
-                    background: `${HIGHLIGHT_GOLD}15`,
-                    borderRadius: 6,
-                    marginBottom: 16,
-                    fontSize: 14
-                  }}>
-                    <strong>Status:</strong> <Tag color="orange" size="small">pending_creator_review</Tag>
-                    <span style={{ marginLeft: 8, color: "#666" }}>
-                      Checklists from Relationship Managers
-                    </span>
-                  </div>
-                  {renderTable()}
-                </div>
-              )
-            },
-            {
-              key: "previous",
-              label: (
-                <span>
-                  Previous Queue
-                  {previousQueue.length > 0 && (
-                    <span style={{ 
-                      marginLeft: 8,
-                      background: "#ff4d4f",
-                      color: "white",
-                      borderRadius: "50%",
-                      padding: "0 6px",
-                      fontSize: 12
-                    }}>
-                      {previousQueue.length}
-                    </span>
-                  )}
-                </span>
-              ),
-              children: (
-                <div style={{ marginTop: 8 }}>
-                  <div style={{ 
-                    padding: 12,
-                    background: `${SECONDARY_PURPLE}15`,
-                    borderRadius: 6,
-                    marginBottom: 16,
-                    fontSize: 14
-                  }}>
-                    <strong>Status:</strong> <Tag color="red" size="small">returned_by_checker</Tag>
-                    <span style={{ marginLeft: 8, color: "#666" }}>
-                      Checklists returned by Checker for fixes
-                    </span>
-                  </div>
-                  {renderTable()}
-                </div>
-              )
-            }
-          ]}
-        />
+        <Row justify="space-between" align="middle">
+          <Col>
+            <h2 style={{ margin: 0, color: PRIMARY_BLUE, display: "flex", alignItems: "center", gap: 12 }}>
+              My Queue
+              <Badge 
+                count={getCurrentDataCount()} 
+                style={{ 
+                  backgroundColor: ACCENT_LIME,
+                  fontSize: 12
+                }}
+              />
+            </h2>
+            <p style={{ margin: "4px 0 0", color: "#666", fontSize: 14 }}>
+              Review checklists from Relationship Managers and Checkers
+            </p>
+          </Col>
+        </Row>
       </Card>
+
+      {/* Filters - WITHOUT Priority filter */}
+      {renderFilters()}
+
+      {/* Tabs */}
+      <Tabs 
+        activeKey={activeTab} 
+        onChange={(key) => {
+          setActiveTab(key);
+          clearFilters();
+        }}
+        type="card"
+        size="large"
+        style={{ marginBottom: 16 }}
+      >
+        <TabPane 
+          tab={
+            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              Current Queue
+              {filteredCurrentQueue.length > 0 && (
+                <Badge 
+                  count={filteredCurrentQueue.length} 
+                  style={{ 
+                    backgroundColor: HIGHLIGHT_GOLD,
+                    fontSize: 10,
+                    marginLeft: 4
+                  }}
+                />
+              )}
+            </span>
+          } 
+          key="current"
+        >
+          {/* Table Title */}
+          <Divider style={{ margin: "12px 0" }}>
+            <span style={{ color: PRIMARY_BLUE, fontSize: 16, fontWeight: 600 }}>
+              Current Queue ({filteredCurrentQueue.length} items)
+            </span>
+          </Divider>
+
+          {/* Table */}
+          {loading ? (
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: 40 }}>
+              <Spin tip="Loading checklists..." />
+            </div>
+          ) : filteredCurrentQueue.length === 0 ? (
+            <Empty 
+              description={
+                <div>
+                  <p style={{ fontSize: 16, marginBottom: 8 }}>No checklists from RM for review</p>
+                  <p style={{ color: "#999" }}>
+                    {searchText || dateRange 
+                      ? 'Try changing your filters' 
+                      : 'No data available'}
+                  </p>
+                </div>
+              } 
+              style={{ padding: 40 }} 
+            />
+          ) : (
+            <div className="myqueue-table">
+              <Table 
+                columns={getColumns(true)} 
+                dataSource={filteredCurrentQueue} 
+                rowKey="_id"
+                size="middle"
+                pagination={{ 
+                  pageSize: 10, 
+                  showSizeChanger: true, 
+                  pageSizeOptions: ["10", "20", "50"], 
+                  position: ["bottomCenter"],
+                  showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} checklists`
+                }}
+                scroll={{ x: 1100 }}
+                onRow={(record) => ({
+                  onClick: () => setSelectedChecklist(record),
+                })}
+              />
+            </div>
+          )}
+        </TabPane>
+        
+        <TabPane 
+          tab={
+            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              Previous Queue
+              {filteredPreviousQueue.length > 0 && (
+                <Badge 
+                  count={filteredPreviousQueue.length} 
+                  style={{ 
+                    backgroundColor: SECONDARY_PURPLE,
+                    fontSize: 10,
+                    marginLeft: 4
+                  }}
+                />
+              )}
+            </span>
+          } 
+          key="previous"
+        >
+          {/* Table Title */}
+          <Divider style={{ margin: "12px 0" }}>
+            <span style={{ color: PRIMARY_BLUE, fontSize: 16, fontWeight: 600 }}>
+              Previous Queue ({filteredPreviousQueue.length} items)
+            </span>
+          </Divider>
+
+          {/* Table */}
+          {loading ? (
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: 40 }}>
+              <Spin tip="Loading checklists..." />
+            </div>
+          ) : filteredPreviousQueue.length === 0 ? (
+            <Empty 
+              description={
+                <div>
+                  <p style={{ fontSize: 16, marginBottom: 8 }}>No checklists returned by Checker</p>
+                  <p style={{ color: "#999" }}>
+                    {searchText || dateRange 
+                      ? 'Try changing your filters' 
+                      : 'No data available'}
+                  </p>
+                </div>
+              } 
+              style={{ padding: 40 }} 
+            />
+          ) : (
+            <div className="myqueue-table">
+              <Table 
+                columns={getColumns(false)} 
+                dataSource={filteredPreviousQueue} 
+                rowKey="_id"
+                size="middle"
+                pagination={{ 
+                  pageSize: 10, 
+                  showSizeChanger: true, 
+                  pageSizeOptions: ["10", "20", "50"], 
+                  position: ["bottomCenter"],
+                  showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} checklists`
+                }}
+                scroll={{ x: 1100 }}
+                onRow={(record) => ({
+                  onClick: () => setSelectedChecklist(record),
+                })}
+              />
+            </div>
+          )}
+        </TabPane>
+      </Tabs>
+
+      {/* Footer Info */}
+      <div style={{ 
+        marginTop: 24, 
+        padding: 16, 
+        background: "#f8f9fa", 
+        borderRadius: 8,
+        fontSize: 12,
+        color: "#666",
+        border: `1px solid ${PRIMARY_BLUE}10`
+      }}>
+        <Row justify="space-between" align="middle">
+          <Col>
+            Report generated on: {dayjs().format('DD/MM/YYYY HH:mm:ss')}
+          </Col>
+          <Col>
+            <Text type="secondary">
+              Showing {getCurrentDataCount()} items • Data as of latest system update
+            </Text>
+          </Col>
+        </Row>
+      </div>
 
       {/* Modal */}
       {selectedChecklist && (
