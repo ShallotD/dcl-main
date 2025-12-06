@@ -63,8 +63,7 @@ const Deferrals = ({ userId }) => {
   
   // Action states
   const [actionLoading, setActionLoading] = useState(false);
-  const [approveComment, setApproveComment] = useState("");
-  const [rejectReason, setRejectReason] = useState("");
+  const [creatorComment, setCreatorComment] = useState("");
 
   // Mock API integration - replace with actual API call
   const mockDeferralsData = [
@@ -252,16 +251,12 @@ const Deferrals = ({ userId }) => {
       filtered = filtered.filter(d => d.priority === filters.priority);
     }
 
-    // Apply search filter
+    // Apply search filter - ONLY customer number and DCL No
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
       filtered = filtered.filter(d => 
         d.customerNumber.toLowerCase().includes(searchLower) ||
-        d.customerName.toLowerCase().includes(searchLower) ||
-        d.dclNo.toLowerCase().includes(searchLower) ||
-        d.documentName.toLowerCase().includes(searchLower) ||
-        d.assignedRM.name.toLowerCase().includes(searchLower) ||
-        d.loanType.toLowerCase().includes(searchLower)
+        d.dclNo.toLowerCase().includes(searchLower)
       );
     }
 
@@ -279,8 +274,8 @@ const Deferrals = ({ userId }) => {
 
   // Handle deferral actions
   const handleApproveDeferral = async () => {
-    if (!approveComment.trim()) {
-      message.error("Please enter approval comments");
+    if (!creatorComment.trim()) {
+      message.error("Please enter your comments before approving");
       return;
     }
 
@@ -298,7 +293,7 @@ const Deferrals = ({ userId }) => {
       // Close modal and reset
       setModalVisible(false);
       setSelectedDeferral(null);
-      setApproveComment("");
+      setCreatorComment("");
       
     } catch (error) {
       console.error("Error approving deferral:", error);
@@ -309,8 +304,8 @@ const Deferrals = ({ userId }) => {
   };
 
   const handleRejectDeferral = async () => {
-    if (!rejectReason.trim()) {
-      message.error("Please enter rejection reason");
+    if (!creatorComment.trim()) {
+      message.error("Please enter your comments before rejecting");
       return;
     }
 
@@ -328,7 +323,7 @@ const Deferrals = ({ userId }) => {
       // Close modal and reset
       setModalVisible(false);
       setSelectedDeferral(null);
-      setRejectReason("");
+      setCreatorComment("");
       
     } catch (error) {
       console.error("Error rejecting deferral:", error);
@@ -369,7 +364,7 @@ const Deferrals = ({ userId }) => {
       background-color: #f7f7f7 !important; 
       color: ${PRIMARY_BLUE} !important; 
       font-weight: 700; 
-      font-size: 15px; 
+      fontSize: 15px; 
       padding: 16px 16px !important; 
       border-bottom: 3px solid ${ACCENT_LIME} !important; 
       border-right: none !important; 
@@ -378,7 +373,7 @@ const Deferrals = ({ userId }) => {
       border-bottom: 1px solid #f0f0f0 !important; 
       border-right: none !important; 
       padding: 14px 16px !important; 
-      font-size: 14px; 
+      fontSize: 14px; 
       color: #333; 
     }
     .deferrals-table .ant-table-tbody > tr.ant-table-row:hover > td { 
@@ -608,7 +603,7 @@ const Deferrals = ({ userId }) => {
       <Row gutter={[16, 16]} align="middle">
         <Col xs={24} sm={12} md={8}>
           <Input
-            placeholder="Search customer name, number, DCL..."
+            placeholder="Search by customer number or DCL No..."
             prefix={<SearchOutlined />}
             value={filters.search}
             onChange={(e) => setFilters({...filters, search: e.target.value})}
@@ -673,7 +668,7 @@ const Deferrals = ({ userId }) => {
         style={{ 
           marginBottom: 24,
           borderRadius: 8,
-          boxShadow: "0 2px 8px rgba(0,0,0,0.1)",  // FIXED: changed box-shadow to boxShadow
+          boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
           borderLeft: `4px solid ${ACCENT_LIME}`
         }}
         bodyStyle={{ padding: 16 }}
@@ -788,8 +783,7 @@ const Deferrals = ({ userId }) => {
         onCancel={() => {
           setModalVisible(false);
           setSelectedDeferral(null);
-          setApproveComment("");
-          setRejectReason("");
+          setCreatorComment("");
         }}
         width={800}
         footer={[
@@ -798,8 +792,7 @@ const Deferrals = ({ userId }) => {
             onClick={() => {
               setModalVisible(false);
               setSelectedDeferral(null);
-              setApproveComment("");
-              setRejectReason("");
+              setCreatorComment("");
             }}
           >
             Cancel
@@ -809,7 +802,7 @@ const Deferrals = ({ userId }) => {
             danger
             onClick={handleRejectDeferral}
             loading={actionLoading}
-            disabled={actionLoading}
+            disabled={actionLoading || !creatorComment.trim()}
           >
             Reject Deferral
           </Button>,
@@ -818,7 +811,7 @@ const Deferrals = ({ userId }) => {
             type="primary" 
             onClick={handleApproveDeferral}
             loading={actionLoading}
-            disabled={actionLoading}
+            disabled={actionLoading || !creatorComment.trim()}
             style={{ background: ACCENT_LIME, borderColor: ACCENT_LIME }}
           >
             Approve Deferral
@@ -929,38 +922,16 @@ const Deferrals = ({ userId }) => {
               </Row>
             </Card>
 
-            {/* Approve/Reject Inputs */}
-            <Card size="small" title="Your Decision" style={{ marginBottom: 16 }}>
-              <div style={{ marginBottom: 16 }}>
-                <strong style={{ color: PRIMARY_BLUE, display: "block", marginBottom: 4 }}>
-                  Approval Comments (Required):
-                </strong>
-                <TextArea
-                  rows={3}
-                  placeholder="Enter your approval comments..."
-                  value={approveComment}
-                  onChange={(e) => setApproveComment(e.target.value)}
-                  style={{ marginBottom: 8 }}
-                />
-                <small style={{ color: "#666" }}>
-                  Provide feedback or conditions for approval
-                </small>
-              </div>
-              
+            {/* Creator General Comment */}
+            <Card size="small" title="Creator General Comment" style={{ marginBottom: 16 }}>
               <div>
-                <strong style={{ color: PRIMARY_BLUE, display: "block", marginBottom: 4 }}>
-                  Rejection Reason (Required if rejecting):
-                </strong>
                 <TextArea
-                  rows={3}
-                  placeholder="Enter reason for rejection..."
-                  value={rejectReason}
-                  onChange={(e) => setRejectReason(e.target.value)}
+                  rows={4}
+                  placeholder="Enter your general comments for this deferral request..."
+                  value={creatorComment}
+                  onChange={(e) => setCreatorComment(e.target.value)}
                   style={{ marginBottom: 8 }}
                 />
-                <small style={{ color: "#666" }}>
-                  Explain why this deferral request is being rejected
-                </small>
               </div>
             </Card>
 
